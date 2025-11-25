@@ -1,0 +1,1906 @@
+:root {
+  --bg-dark: #030712;
+  --bg-card: #0f172a;
+  --bg-soft: #111827;
+  --accent: #22c55e;
+  --accent-soft: rgba(34, 197, 94, 0.15);
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --danger: #f97373;
+  --border-soft: #1f2937;
+  --radius-lg: 16px;
+  --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.6);
+  --transition: 0.2s ease;
+  --sidebar-width: 260px;
+  --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  color: var(--text-main);
+}
+
+/* ---------- LOGIN ---------- */
+
+.body-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: radial-gradient(circle at top, #1f2933, #020617);
+}
+
+.login-container {
+  display: flex;
+  width: 100%;
+  max-width: 1100px;
+  margin: 24px;
+  border-radius: 28px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: var(--shadow-soft);
+}
+
+.login-left {
+  flex: 1;
+  padding: 40px 32px;
+  background: radial-gradient(circle at top, rgba(34, 197, 94, 0.1), #020617);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-logo {
+  width: 340px;
+  max-width: 100%;
+  margin-bottom: 24px;
+}
+
+.login-title {
+  font-size: 2.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+
+.login-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-card);
+  padding: 28px 24px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+}
+
+.login-card h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.login-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+/* ---------- FORMULARIOS ---------- */
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: #020617;
+  color: var(--text-main);
+  outline: none;
+  font-size: 0.95rem;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-icon input {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+}
+
+/* Ocultar el botón del ojito cuando no haya texto */
+.toggle-password.hidden-eye {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Asegurar espacio a la derecha del input para el ojito */
+.input-with-icon input {
+  padding-right: 2.5rem;
+}
+
+
+.toggle-password i {
+  pointer-events: none; /* Para que el click cuente sobre el botón, no sobre el ícono */
+}
+
+
+.toggle-password:hover {
+  color: var(--text-main);
+}
+
+/* Select estilizado */
+.form-group select {
+  padding: 8px 36px 8px 12px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.15), transparent 55%) padding-box,
+    #020617;
+  border: 1px solid rgba(34, 197, 94, 0.7);
+  color: var(--text-main);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7L10 12L15 7' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+
+.form-group select:focus {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.45);
+}
+
+/* Opciones del desplegable (se respeta en la mayoría de navegadores modernos) */
+.form-group select option {
+  background-color: #020617;
+  color: var(--text-main);
+  padding: 8px 10px;
+}
+
+.form-group select option:not(:last-child) {
+  border-bottom: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+.checkbox-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- BOTONES ---------- */
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform var(--transition), box-shadow var(--transition),
+    background var(--transition), color var(--transition), border var(--transition);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #022c22;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(34, 197, 94, 0.45);
+}
+
+.btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(34, 197, 94, 0.6);
+}
+
+.btn.secondary {
+  background: var(--bg-soft);
+  color: var(--text-main);
+  border: 1px solid var(--border-soft);
+}
+
+.btn.secondary:hover {
+  background: #020617;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-soft);
+}
+
+.btn.small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.btn.full-width {
+  width: 100%;
+}
+
+.btn.danger {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+  border: 1px solid #f97373;
+}
+
+/* ---------- MENSAJES ---------- */
+
+.error-message {
+  color: var(--danger);
+  font-size: 0.85rem;
+  min-height: 18px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- DASHBOARD ---------- */
+
+.body-dashboard {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1f2933, #020617);
+}
+
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: rgba(15, 23, 42, 0.98);
+  border-right: 1px solid var(--border-soft);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: radial-gradient(circle at top, var(--accent), #16a34a);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #022c22;
+}
+
+.sidebar-title {
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: auto;
+}
+
+.menu-item {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background var(--transition), color var(--transition),
+    transform var(--transition);
+}
+
+.sidebar-menu .menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-menu .menu-item i {
+  font-size: 1rem;
+}
+
+
+.menu-item:hover {
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-main);
+}
+
+.menu-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
+.logout-btn {
+  margin-top: 16px;
+}
+
+/* Main */
+
+.main-content {
+  flex: 1;
+  padding: 20px 18px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.current-user-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.content-section {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.content-section.active {
+  display: flex;
+}
+
+.section-description {
+  margin-top: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Cards y tablas */
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+}
+
+.table-card {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+}
+
+.table thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.table tbody tr:hover {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+/* Fila de préstamo vencido (fecha FIN pasada y status = open) */
+.tr-loan-overdue {
+  background-color: #3b1218;   /* rojo oscuro para que combine con tu tema */
+}
+
+.tr-loan-overdue td {
+  color: #ffecec;              /* texto claro para que se lea bien */
+}
+
+
+/* Layouts de formularios */
+
+.form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.form-inline .form-group {
+  min-width: 140px;
+  flex: 1;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.toolbar {
+  margin-bottom: 10px;
+}
+
+.clients-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #020617;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  padding: 4px 10px;
+  max-width: 320px;
+  width: 100%;
+}
+
+.search-input-wrapper .search-icon {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.search-clear-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+
+.toolbar input {
+  width: 100%;
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+/* LOGIN: pantallas entre 601px y 900px */
+@media (max-width: 900px) and (min-width: 601px) {
+  /* Centrar verticalmente el contenedor del login */
+  .body-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-container {
+    flex-direction: column;
+    max-width: 600px;       /* ancho máximo en este rango */
+    margin: 24px;
+    border-radius: 24px;
+  }
+
+  /* Zona del logo */
+  .login-left {
+    flex: 0;
+    padding: 24px 16px 8px;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Tamaño del logo solo para 601–900 px */
+  .login-logo {
+    max-width: 260px;
+    height: auto;
+    margin-bottom: 12px;
+  }
+
+  .login-title {
+    font-size: 1.7rem;
+    margin-bottom: 4px;
+  }
+
+  .login-subtitle {
+    font-size: 0.9rem;
+  }
+
+  /* Tarjeta de "Iniciar sesión" */
+  .login-right {
+    flex: 0;
+    padding: 12px 16px 24px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 22px 24px 22px;
+  }
+
+  .login-card .form-group {
+    margin-bottom: 10px;
+  }
+
+  .login-card .btn.full-width {
+    margin-top: 12px;
+  }
+}
+
+
+
+/* LOGIN: pantallas de 600px hacia abajo */
+@media (max-width: 600px) {
+  /* Centrar verticalmente el contenedor del login */
+  .body-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-container {
+    flex-direction: column;
+    max-width: 470px;
+    margin: 16px;
+    border-radius: 24px;
+  }
+
+  /* Zona del logo solo para móviles */
+  .login-left {
+    flex: 0;
+    padding: 40px 16px 15px;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Tamaño del logo en móvil: ajusta aquí a tu gusto */
+  .login-logo {
+    max-width: 220px;
+    height: auto;
+    margin-bottom: 10px;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+  }
+
+  .login-subtitle {
+    font-size: 0.85rem;
+  }
+
+  /* Tarjeta de "Iniciar sesión" en móvil */
+  .login-right {
+    flex: 0;
+    padding: 8px 16px 45px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 340px;
+    padding: 18px 18px 30px;
+  }
+
+  .login-card .form-group {
+    margin-bottom: 8px;
+  }
+
+  .login-card .btn.full-width {
+    margin-top: 8px;
+  }
+
+  /* Header del dashboard en móvil (lo que ya tenías) */
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+
+
+/* ---------- USER AVATAR Y MENÚ ---------- */
+
+.user-menu-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: radial-gradient(circle at top, var(--accent-soft), #020617);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.user-avatar span {
+  pointer-events: none;
+}
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  min-width: 180px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.8);
+  padding: 6px;
+  z-index: 20;
+}
+
+.user-dropdown-item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.user-dropdown-item:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* ---------- MODAL CAMBIAR CONTRASEÑA ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.client-detail-box {
+  max-width: 720px;
+  max-height: 80vh;
+  overflow-y: auto;
+
+  /* Scrollbar oscuro (Firefox) */
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 #020617;
+}
+
+/* Scrollbar oscuro (Chrome/Edge/etc.) */
+.client-detail-box::-webkit-scrollbar {
+  width: 8px;
+}
+
+.client-detail-box::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+.client-detail-box::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 999px;
+}
+
+
+.client-loans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.client-loan-item {
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #020617;
+  border: 1px solid var(--border-soft);
+}
+
+.client-loan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.client-loan-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.client-loan-status.status-open {
+  background: rgba(34, 197, 94, 0.15);
+  color: #bbf7d0;
+}
+
+.client-loan-status.status-closed {
+  background: rgba(75, 85, 99, 0.8);
+  color: #e5e7eb;
+}
+
+.client-loan-dates {
+  color: var(--text-muted);
+}
+
+.client-loan-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 4px 12px;
+  font-size: 0.85rem;
+}
+
+.client-loan-payments {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.client-loan-payments ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  position: relative;
+  max-width: 400px;
+  width: 90%;
+  z-index: 50;
+}
+
+.modal-box h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Modal específico de PRÉSTAMOS */
+.loan-modal-box {
+  /* un poco más estrecho horizontalmente */
+  max-width: 480px;
+}
+
+/* Layout vertical del formulario de préstamo */
+.loan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loan-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Fila del interés: botones - / + y valor centrado y compacto */
+.loan-interest-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;   /* centra el conjunto en la celda */
+  gap: 8px;
+}
+
+/* Botones - y + más pequeños y cuadrados */
+.loan-interest-row button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+/* Campo del porcentaje más estrecho y sin estirarse */
+.loan-interest-row input {
+  flex: 0 0 110px;           /* ancho fijo ~110px */
+  width: 110px;
+  text-align: center;
+}
+
+/* Botones del modal de préstamo centrados */
+.loan-modal-actions {
+  justify-content: center;
+}
+
+
+/* =========================
+   Toast notifications
+   ========================= */
+
+.toast-container {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 60;
+  pointer-events: none; /* no bloquea clics del fondo */
+}
+
+
+.toast {
+  min-width: 260px;
+  max-width: 340px;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 55%),
+    rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e5e7eb;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.9);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  border-color: #22c55e;
+}
+
+.toast-error {
+  border-color: #f97373;
+  color: #fee2e2;
+}
+
+/* ---------- TOASTS ---------- */
+
+.toast-container {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  min-width: 260px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  font-size: 0.9rem;
+  text-align: center;
+  opacity: 0.98;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-success {
+  border-color: var(--accent);
+}
+
+.toast-error {
+  border-color: var(--danger);
+}
+
+.toast.hide {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+}
+
+/* ---------- Toolbar clientes + búsqueda ---------- */
+
+.toolbar-clients {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btn-with-icon .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.client-search-wrapper {
+  position: relative;
+  max-width: 320px;
+  width: 100%;
+}
+
+.client-search-input {
+  width: 100%;
+  padding-right: 32px;
+}
+
+.client-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+/* ---------- Modales clientes ---------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 900;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.modal-box {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  z-index: 901;
+}
+
+/* Detalle de cliente: lista de préstamos */
+
+.client-detail-box {
+  max-width: 720px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.client-loans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.client-loan-item {
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #020617;
+  border: 1px solid var(--border-soft);
+}
+
+.client-loan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.client-loan-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.client-loan-status.status-open {
+  background: rgba(34, 197, 94, 0.12);
+  color: #bbf7d0;
+}
+
+.client-loan-status.status-closed {
+  background: rgba(55, 65, 81, 0.8);
+  color: #e5e7eb;
+}
+
+.client-loan-dates {
+  color: var(--text-muted);
+}
+
+.client-loan-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 4px 12px;
+  font-size: 0.85rem;
+}
+
+.client-loan-body div strong {
+  font-weight: 600;
+}
+
+.client-loan-payments {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ---------- TOASTS ---------- */
+
+.toast-container {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  min-width: 260px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7);
+  font-size: 0.9rem;
+  text-align: center;
+  opacity: 0.98;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-success {
+  border-color: var(--accent);
+}
+
+.toast-error {
+  border-color: var(--danger);
+}
+
+.toast.hide {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Píldora de estado de usuario */
+.user-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Activo: verde transparente */
+.user-status-pill.status-active {
+  background: rgba(34, 197, 94, 0.15);   /* verde suave */
+  color: #bbf7d0;
+}
+
+/* Inactivo: naranja transparente */
+.user-status-pill.status-inactive {
+  background: rgba(249, 115, 22, 0.18);  /* naranja suave */
+  color: #fed7aa;
+}
+
+/* Botón rectangular de icono (editar) */
+.btn-icon-rect {
+  border-radius: 10px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Botón para habilitar / inhabilitar */
+.btn-status-toggle {
+  border-radius: 10px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-rect i,
+.btn-status-toggle i {
+  pointer-events: none;
+}
+
+/* Si el usuario está ACTIVO → mostrar X roja */
+.btn-status-toggle.status-active-btn {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid #f97373;
+  color: #fecaca;
+}
+
+/* Si el usuario está INACTIVO → mostrar visto verde */
+.btn-status-toggle.status-inactive-btn {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid var(--accent);
+  color: #bbf7d0;
+}
+
+/* ---------- ESTADOS DE USUARIO (PÍLDORA + BOTONES) ---------- */
+
+.user-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Activo: verde transparente */
+.user-status-pill.status-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #bbf7d0;
+}
+
+/* Inhabilitado: naranja transparente */
+.user-status-pill.status-inactive {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fed7aa;
+}
+
+/* Botón rectangular de icono (editar) */
+.btn-icon-rect {
+  border-radius: 10px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Botón para habilitar / inhabilitar */
+.btn-status-toggle {
+  border-radius: 10px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-rect i,
+.btn-status-toggle i {
+  pointer-events: none;
+}
+
+/* Si el usuario está ACTIVO → mostrar X roja */
+.btn-status-toggle.status-active-btn {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid #f97373;
+  color: #fecaca;
+}
+
+/* Si el usuario está INACTIVO → mostrar visto verde */
+.btn-status-toggle.status-inactive-btn {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid var(--accent);
+  color: #bbf7d0;
+}
+
+/*-------------- Calendario de préstamos (FullCalendar)-------------------------*/
+.loan-date-group {
+  position: relative; /* referencia para el popup */
+}
+
+.loan-calendar {
+  position: absolute;
+  top: calc(100% + 6px);   /* justo debajo del input */
+  left: 0;
+  z-index: 120;            /* por encima del modal */
+  width: 260px;            /* <-- ANCHO del popup (ajústalo aquí) */
+  max-width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  background: #ffffff;     /* fondo blanco */
+}
+
+/* oculta el popup */
+.loan-calendar.hidden {
+  display: none;
+}
+
+/* Estilo general compacto */
+.loan-calendar .fc {
+  background: #ffffff;
+  color: #111827;
+  font-size: 0.8rem;        /* <-- tamaño base de letra */
+}
+
+/* Barra superior (mes, botones prev/next) */
+.loan-calendar .fc-toolbar {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+.loan-calendar .fc-toolbar-title {
+  color: #111827;
+  font-size: 0.85rem;       /* <-- tamaño del título del mes */
+}
+
+/* Botones prev/next más pequeños */
+.loan-calendar .fc-button {
+  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+  color: #111827;
+  padding: 2px 6px;         /* <-- tamaño del botón */
+  font-size: 0.75rem;
+}
+
+.loan-calendar .fc-button-primary:not(:disabled).fc-button-active,
+.loan-calendar .fc-button-primary:not(:disabled):active {
+  background: #d1d5db;
+  border-color: #9ca3af;
+}
+
+/* Celdas del calendario más compactas */
+.loan-calendar .fc-daygrid-day-frame {
+  height: 25px;
+  padding: 20px;             /* <-- espacio interno de cada día */
+}
+
+.loan-calendar .fc-daygrid-day-number {
+  color: #111827;
+  font-size: 0.8rem;
+}
+
+/* --- FIX: asegurar que se vean los iconos de las acciones en tablas --- */
+.table td .btn {
+  font-size: 0.85rem !important;      /* el botón vuelve a tener texto/icono visible */
+}
+
+.table td .btn i {
+  display: inline-block !important;   /* por si alguna regla los ponía en display:none */
+  font-size: 0.9rem !important;       /* tamaño claro del icono */
+  line-height: 1 !important;
+  color: inherit !important;          /* usa el color del botón: verde/rojo, etc. */
+}
+
+/* ===== Modal de abonos ===== */
+.loan-payment-summary {
+  margin: 1rem 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.9rem;
+}
+
+.loan-payment-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.loan-payment-row span:first-child {
+  opacity: 0.8;
+}
+
+.loan-payment-row span:last-child {
+  font-weight: 600;
+}
+
+/* Caja principal del modal de abonos */
+.loan-payment-box {
+  max-width: 520px;
+}
+
+/* Botón X del modal (arriba a la derecha) */
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #ffffff;
+}
+
+/* Info del préstamo (cliente, cédula, montos, etc.) */
+/* Info del préstamo (cliente, cédula, montos, etc.) */
+.lp-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+  font-size: 0.9rem;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+.lp-hidden-row {
+  display: none;
+}
+
+/* Bloque del nuevo abono */
+.lp-add {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+
+
+.lp-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.lp-add-header label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.lp-add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lp-add .modal-actions {
+  margin-top: 0;
+}
+
+.lp-add input {
+  width: 100%;
+  max-width: none;
+}
+
+/* Historial de abonos */
+.lp-payments-section {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.lp-payments-header {
+  display: grid;
+  grid-template-columns: 90px 110px minmax(0, 1fr) 60px;
+  gap: 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.lp-payments-wrapper {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.lp-payments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+
+.lp-payments-list li {
+  display: grid;
+  grid-template-columns: 90px 110px minmax(0, 1fr) 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.lp-payments-list li:last-child {
+  border-bottom: none;
+}
+
+.lp-payments-empty {
+  padding: 6px 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* Botón de tacho */
+.icon-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Ícono rojo como el de la tabla de fuera */
+.lp-payments-list .icon-button i {
+  font-size: 0.9rem;
+  color: #ef4444; /* rojo */
+}
+
+.icon-button i {
+  font-size: 0.9rem;
+}
+
+.icon-button.lp-delete-disabled i {
+  opacity: 0.4;
+}
+
+.lp-payments-empty {
+  padding: 6px 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* Botón de tacho (basura) */
+.icon-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.icon-button i {
+  font-size: 0.9rem;
+}
+
+
+
+/* Bloque del nuevo abono */
+.lp-add {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+/* Fila con label + botones al mismo nivel */
+.lp-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+/* Label con el mismo color que los demás (como Agregar usuario) */
+.lp-add-row label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #9ca3af; /* mismo tono gris de tus otros labels */
+}
+
+/* Botones Salir / Abonar pegados al label */
+.lp-add-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.lp-add .modal-actions {
+  margin-top: 0;
+}
+
+/* Input del abono ocupando todo el ancho, estilo igual al resto */
+.lp-add input {
+  width: 100%;
+  max-width: none;
+}
+
+
+.lp-add .modal-actions {
+  margin-top: 0;
+}
+
+/* El input de abono como los demás campos grandes */
+.lp-add input {
+  width: 100%;
+  max-width: none;
+}
+
+
+/* Ocultar filas de deuda actual y pago diario */
+.lp-hidden-row {
+  display: none;
+}
+
+
+/* botón abonar (azul semitransparente) */
+.btn.pay {
+  background: rgba(0, 123, 255, 0.12); /* azul claro transparente */
+  color: #0b66c2;
+  border: 1px solid rgba(11, 102, 194, 0.6);
+  padding: 6px 8px;
+  margin-right: 6px;
+  border-radius: 6px;
+}
+.btn.pay i { font-size: 14px; }
+
+/* Líneas del modal (incluye el de abonar) con el mismo tono que las tablas */
+.modal-content hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  margin: 8px 0;
+}
+
+/* ===== Overrides finales para modal "Abonar préstamo" ===== */
+
+/* línea divisora igual que las tablas */
+#loan-payment-modal .loan-payment-box hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 8px 0;
+}
+
+/* Label y botones del campo "Nuevo abono" en el modal de préstamos */
+#loan-payment-modal .lp-add {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#loan-payment-modal .lp-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+/* MISMO estilo de label que .form-group label */
+#loan-payment-modal .lp-add-header label {
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Botones Salir / Abonar alineados al lado derecho del label */
+#loan-payment-modal .lp-add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Input del abono a lo ancho, como los demás campos largos */
+#loan-payment-modal .lp-add input {
+  width: 100%;
+  max-width: 100%;
+}
+
+
+/* Historial: tabla con scrollbar */
+#loan-payment-modal .lp-payments-section {
+  margin: 6px 0 10px;
+}
+
+#loan-payment-modal .lp-payments-header {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr 1.6fr 0.6fr;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+#loan-payment-modal .lp-payments-header span:last-child {
+  text-align: right;
+}
+
+#loan-payment-modal .lp-payments-wrapper {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+/* Scrollbar oscuro del historial de abonos (como el de client-detail-box) */
+#loan-payment-modal .lp-payments-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #1f2937 #020617;  /* Firefox */
+}
+
+#loan-payment-modal .lp-payments-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+#loan-payment-modal .lp-payments-wrapper::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+#loan-payment-modal .lp-payments-wrapper::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 999px;
+}
+
+
+#loan-payment-modal .lp-payments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+#loan-payment-modal .lp-payments-list li {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr 1.6fr 0.6fr;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+#loan-payment-modal .lp-payments-list li:last-child {
+  border-bottom: none;
+}
+
+#loan-payment-modal .lp-payments-list span:nth-child(4) {
+  text-align: right;
+}
+
+#loan-payment-modal .lp-payments-empty {
+  padding: 6px 0;
+  color: var(--text-muted);
+}
+
+/* Botón de tacho dentro del modal, igual al de las tablas */
+#loan-payment-modal .lp-payments-list .btn.danger {
+  padding: 2px 10px;
+  min-width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#loan-payment-modal .lp-payments-list .btn.danger i {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+/* ===== Detalle de préstamos cerrados por cliente ===== */
+
+.client-detail-header {
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.client-detail-header p {
+  margin: 2px 0;
+}
+
+.client-detail-empty {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.client-closed-loans {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Cabecera tipo tabla */
+.client-closed-loans-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.6fr 1.6fr auto;
+  align-items: center;
+  text-align: center;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0 4px 6px;
+}
+
+/* Cada registro */
+.client-closed-loan {
+  background: #020617;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  padding: 6px 10px;
+}
+
+.client-closed-loan-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.6fr 1.6fr auto;
+  align-items: center;
+  text-align: center;
+  column-gap: 8px;
+  font-size: 0.85rem;
+}
+
+.client-closed-loan-row span {
+  display: block;
+}
+
+/* Botón de la flecha a la derecha */
+.client-closed-loan-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  justify-self: end;
+  transition: transform 0.15s ease;
+}
+
+.client-closed-loan-toggle.open i {
+  transform: rotate(180deg);
+}
+
+/* Contenedor de abonos */
+.client-closed-loan-payments {
+  margin-top: 8px;
+}
+
+/* Separador entre préstamos */
+.client-closed-loan-divider {
+  margin: 6px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+/* =========================
+   Override FINAL - Nuevo abono
+   ========================= */
+
+/* Contenedor: input + botones en la misma fila */
+#loan-payment-modal .lp-add {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+/* Columna del label + input (como .form-group) */
+#loan-payment-modal .lp-add-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Label con el mismo estilo que los demás */
+#loan-payment-modal .lp-add-label {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
+/* Input del abono con EL MISMO estilo base de los otros campos */
+#loan-payment-modal #lp-new-amount {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: #020617;
+  color: var(--text-main);
+  outline: none;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+/* Mismo efecto al enfocar que los inputs normales */
+#loan-payment-modal #lp-new-amount:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+}
+
+/* Botones Salir / Abonar alineados a la derecha y centrados verticalmente */
+#loan-payment-modal .lp-add-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}

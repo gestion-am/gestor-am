@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>GESTOR-AM - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  <link rel="stylesheet" href="css/styles.css">
+  <script defer src="js/app.js"></script>
+</head>
+<body class="body-login">
+  <div class="login-container">
+    <div class="login-left">
+      <img src="assets/gestor-am-logo.png" alt="Gestor-AM Logo" class="login-logo">
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <h2>Iniciar sesión</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-username">Usuario</label>
+            <input type="text" id="login-username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+  <label for="login-password">Contraseña</label>
+  <div class="input-with-icon">
+    <input type="password" id="login-password" required />
+    <button
+      type="button"
+      class="toggle-password hidden-eye"
+      data-target="login-password"
+      aria-label="Mostrar u ocultar contraseña"
+    >
+      <i class="fa-regular fa-eye"></i>
+    </button>
+  </div>
+</div>
+          <p id="login-error" class="error-message"></p>
+
+          <button type="submit" class="btn primary full-width">Entrar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Contenedor de toasts en login -->
+   <div id="toast-container" class="toast-container"></div>
+</body>
+</html>

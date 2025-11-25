@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>GESTOR-AM - Panel</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js" defer></script>
+<link rel="stylesheet" href="css/styles.css">
+
+  <script defer src="js/app.js"></script>
+
+
+</head>
+<body class="body-dashboard">
+  <div id="dashboard-page" class="dashboard-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-logo">GA</span>
+        <span class="sidebar-title">GESTOR-AM</span>
+      </div>
+
+     <nav class="sidebar-menu">
+  <button class="menu-item active" data-section="users">
+    <i class="fa-solid fa-users-gear"></i>
+    <span>Usuarios</span>
+  </button>
+  <button class="menu-item" data-section="clients">
+    <i class="fa-solid fa-address-book"></i>
+    <span>Clientes</span>
+  </button>
+  <button class="menu-item" data-section="loans">
+    <i class="fa-solid fa-hand-holding-dollar"></i>
+    <span>Préstamos</span>
+  </button>
+</nav>
+
+      <!-- OJO: ya no hay botón de cerrar sesión aquí -->
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <header class="main-header">
+        <h1>Panel de gestión</h1>
+
+        <!-- Avatar con iniciales y menú -->
+        <div class="user-menu-wrapper">
+          <button id="user-avatar-btn" class="user-avatar">
+            <span id="user-avatar-initials">GA</span>
+          </button>
+          <div id="user-dropdown" class="user-dropdown hidden">
+            <button id="btn-change-password" class="user-dropdown-item">
+              Cambiar contraseña
+            </button>
+            <button id="btn-logout-top" class="user-dropdown-item">
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Sección Usuarios -->
+       <section id="section-users" class="content-section active">
+        <h2>Usuarios</h2>
+        <!-- NUEVO: solo botón para abrir el modal -->
+        <div class="card toolbar">
+          <button id="btn-add-user" class="btn primary">
+  <i class="fa-solid fa-user-plus"></i>
+  <span>Agregar usuario</span>
+</button>
+
+        </div>
+
+        <div class="card table-card">
+         <table class="table" id="users-table">
+  <thead>
+    <tr>
+      <th>Usuario</th>
+      <th>Fecha creación</th>
+      <th>Estado</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- filas dinámicas -->
+  </tbody>
+</table>
+
+        </div>
+      </section>
+
+      <!-- Sección Clientes -->
+ <section id="section-clients" class="content-section">
+  <h2>Clientes</h2>
+
+  <!-- Barra de herramientas: botón + buscador -->
+  <div class="card clients-toolbar">
+    <button type="button" id="btn-add-client" class="btn primary">
+      <i class="fa-solid fa-user-plus"></i>
+      <span>Agregar cliente</span>
+    </button>
+
+    <div class="search-input-wrapper">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input
+        type="text"
+        id="client-search"
+        class="search-input"
+        placeholder="Buscar por cédula o nombre..."
+      />
+      <button
+        type="button"
+        id="client-search-clear"
+        class="search-clear-btn"
+        aria-label="Limpiar búsqueda"
+      >
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabla de clientes -->
+  <div class="card table-card">
+    <table class="table" id="clients-table">
+  <thead>
+    <tr>
+      <th>Cédula</th>
+      <th>Nombre completo</th>
+      <th>Fecha de Ingreso</th>
+      <th># Préstamos cerrados</th>
+      <th># Préstamos abiertos</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+
+      <tbody>
+        <!-- filas dinámicas -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Modal DETALLE PRÉSTAMOS DEL CLIENTE -->
+<div id="client-detail-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card client-detail-box">
+    <h3 id="client-detail-title">Préstamos del cliente</h3>
+    <div id="client-detail-content"></div>
+    <div class="modal-actions">
+      <button type="button" id="client-detail-close" class="btn secondary">
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+     <!-- Sección Préstamos -->
+<section id="section-loans" class="content-section">
+  <h2>Préstamos</h2>
+
+  <!-- Botón principal -->
+  <div class="card" style="display:flex;justify-content:flex-start;gap:12px;padding:16px">
+  <button id="btn-add-loan" class="btn primary" type="button" title="Registrar préstamo">
+    <i class="fa-solid fa-file-circle-plus"></i> Registrar préstamo
+  </button>
+</div>
+
+
+  <!-- Tabla -->
+  <div class="card table-card">
+    <table class="table" id="loans-table">
+      <thead>
+        <tr>
+          <th>Cédula</th>
+          <th>Cliente</th>
+          <th>Monto</th>
+          <th>% Int.</th>
+          <th>Total</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Pago diario</th>
+          <th>Pendiente</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody><!-- filas dinámicas --></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Modal: Registrar préstamo -->
+<div id="loan-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card loan-modal-box">
+    <h3>Registrar préstamo</h3>
+
+    <form id="loan-form" class="loan-form">
+      <!-- Fila 1: cliente (toda la fila) -->
+      <div class="form-group">
+        <label for="loan-client">Cliente</label>
+        <select id="loan-client" required>
+          <!-- opciones dinámicas -->
+        </select>
+      </div>
+
+      <!-- Fila 2: monto + fecha fin -->
+      <div class="loan-form-row">
+                  <div class="form-group">
+            <label for="loan-amount">Monto del préstamo</label>
+            <input type="text" id="loan-amount" placeholder="Ej. 150.50" required>
+          </div>
+
+          <div class="form-group loan-date-group">
+  <label for="loan-end-date">Fecha fin del préstamo</label>
+  <input
+    type="text"
+    id="loan-end-date"
+    placeholder="aaaa-mm-dd"
+    readonly
+    required
+  />
+  <!-- Calendario interactivo -->
+  <div id="loan-calendar" class="loan-calendar hidden"></div>
+</div>
+
+
+
+      </div>
+
+      <!-- Fila 3: interés + pago diario -->
+      <div class="loan-form-row">
+        <div class="form-group">
+          <label for="loan-interest">Interés (%)</label>
+          <div class="loan-interest-row">
+            <button
+              type="button"
+              id="loan-int-minus"
+              class="btn secondary"
+              title="Reducir 5 %"
+            >
+              −
+            </button>
+            <input type="text" id="loan-interest" disabled />
+            <button
+              type="button"
+              id="loan-int-plus"
+              class="btn secondary"
+              title="Aumentar 5 %"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="loan-daily">Pago diario estimado</label>
+          <input type="text" id="loan-daily" disabled />
+        </div>
+      </div>
+
+      <p id="loan-form-error" class="error-message"></p>
+
+      <!-- Botones centrados -->
+     <div class="modal-actions loan-modal-actions">
+  <button type="button" id="loan-cancel" class="btn secondary">
+    Cancelar
+  </button>
+  <button type="submit" class="btn primary">
+    Registrar préstamo
+  </button>
+</div>
+
+    </form>
+  </div>
+</div>
+
+
+    </main>
+  </div>
+
+      <!-- Contenedor de notificaciones (toasts) -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Modal agregar/editar usuario -->
+    <div id="user-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-box card">
+        <h3 id="user-modal-title">Agregar usuario</h3>
+
+        <form id="user-form">
+          <input type="hidden" id="user-id">
+
+         <div class="form-group">
+  <label for="user-username">Usuario</label>
+  <input type="text" id="user-username" autocomplete="off" maxlength="20" />
+</div>
+
+
+         <div class="form-group">
+  <label for="user-password">Contraseña</label>
+  <div class="input-with-icon">
+    <input type="password" id="user-password" />
+    <button
+      type="button"
+      class="toggle-password hidden-eye"
+      data-target="user-password"
+      aria-label="Mostrar u ocultar contraseña"
+    >
+      <i class="fa-regular fa-eye"></i>
+    </button>
+  </div>
+</div>
+
+<div class="form-group">
+  <label for="user-password-confirm">Confirmar contraseña</label>
+  <div class="input-with-icon">
+    <input type="password" id="user-password-confirm" />
+    <button
+      type="button"
+      class="toggle-password hidden-eye"
+      data-target="user-password-confirm"
+      aria-label="Mostrar u ocultar contraseña"
+    >
+      <i class="fa-regular fa-eye"></i>
+    </button>
+  </div>
+</div>
+
+
+
+          <div class="form-group">
+            <label for="user-role">Rol</label>
+            <select id="user-role">
+              <option value="admin">Administrador</option>
+              <option value="user" selected>Usuario normal</option>
+            </select>
+          </div>
+
+          <p id="user-form-error" class="error-message"></p>
+
+          <div class="modal-actions">
+            <button type="button" id="user-cancel-edit" class="btn ghost">
+              Cancelar
+            </button>
+            <button type="submit" class="btn primary">
+              Guardar usuario
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  <!-- Modal: confirmar habilitar / inhabilitar usuario -->
+<div id="user-toggle-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3 id="user-toggle-title">Cambiar estado del usuario</h3>
+    <p id="user-toggle-message">
+      ¿Estás seguro de que deseas cambiar el estado de este usuario?
+    </p>
+    <div class="modal-actions">
+      <button
+        type="button"
+        id="user-toggle-cancel"
+        class="btn secondary"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        id="user-toggle-confirm"
+        class="btn danger"
+      >
+        Sí, continuar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Modal: Agregar cliente -->
+<div id="client-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3>Agregar cliente</h3>
+
+    <form id="client-form">
+      <div class="form-group">
+        <label for="client-id">Cédula</label>
+        <input
+          type="text"
+          id="client-id"
+          maxlength="10"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="client-firstname">Nombres</label>
+        <input
+          type="text"
+          id="client-firstname"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="client-lastname">Apellidos</label>
+        <input
+          type="text"
+          id="client-lastname"
+          autocomplete="off"
+        />
+      </div>
+
+      <p id="client-form-error" class="error-message"></p>
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          id="client-cancel"
+          class="btn secondary"
+        >
+          Cancelar
+        </button>
+        <button type="submit" class="btn primary">
+          Guardar cliente
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Confirmar eliminación de cliente -->
+<div id="client-delete-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3>Eliminar cliente</h3>
+    <p id="client-delete-message">
+      ¿Estás seguro de que deseas eliminar este cliente?
+    </p>
+    <div class="modal-actions">
+      <button
+        type="button"
+        id="client-delete-cancel"
+        class="btn secondary"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        id="client-delete-confirm"
+        class="btn danger"
+      >
+        Sí, eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+  <!-- MODAL CAMBIAR CONTRASEÑA -->
+  <div id="change-password-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-box card">
+      <h3>Cambiar contraseña</h3>
+      <form id="change-password-form">
+        <!-- Nueva contraseña -->
+<div class="form-group">
+  <label for="new-password">Nueva contraseña</label>
+  <div class="input-with-icon">
+    <input type="password" id="new-password" required />
+    <button
+      type="button"
+      class="toggle-password hidden-eye"
+      data-target="new-password"
+      aria-label="Mostrar u ocultar contraseña"
+    >
+      <i class="fa-regular fa-eye"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Confirmar contraseña -->
+<div class="form-group">
+  <label for="confirm-password">Confirmar contraseña</label>
+  <div class="input-with-icon">
+    <input type="password" id="confirm-password" required />
+    <button
+      type="button"
+      class="toggle-password hidden-eye"
+      data-target="confirm-password"
+      aria-label="Mostrar u ocultar contraseña"
+    >
+      <i class="fa-regular fa-eye"></i>
+    </button>
+  </div>
+</div>
+
+
+        <p id="change-password-error" class="error-message"></p>
+        <div class="modal-actions">
+          <button type="button" id="cancel-change-password" class="btn ghost">Cancelar</button>
+          <button type="submit" class="btn primary">Cambiar contraseña</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div id="toast-container" class="toast-container"></div>
+
+ <!-- Modal: eliminar préstamo -->
+<div id="loan-delete-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3 class="modal-title">Eliminar préstamo</h3>
+    <p id="loan-delete-message" class="modal-text">
+      <!-- Aquí se llenará el texto desde JS -->
+    </p>
+
+    <div class="modal-actions">
+      <button id="loan-delete-cancel" class="btn secondary">
+        Cancelar
+      </button>
+      <button id="loan-delete-confirm" class="btn danger">
+        Sí, eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ABONAR -->
+<div id="loan-payment-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+
+  <div class="modal-box card loan-payment-box">
+   
+       <h3>Abonar préstamo</h3>
+
+<!-- Info del préstamo -->
+<div class="lp-info">
+  <div><strong>Cliente:</strong> <span id="lp-client">-</span></div>
+  <div><strong>Cédula:</strong> <span id="lp-cedula">-</span></div>
+
+  <div><strong>Monto inicial:</strong> <span id="lp-initial">$0.00</span></div>
+  <div><strong>Pago pendiente:</strong> <span id="lp-pending">$0.00</span></div>
+
+  <!-- Se mantienen ocultas para que el JS no falle -->
+  <div class="lp-hidden-row">
+    <strong>Deuda actual:</strong> <span id="lp-remaining">$0.00</span>
+  </div>
+  <div class="lp-hidden-row">
+    <strong>Pago diario:</strong> <span id="lp-daily">$0.00</span>
+  </div>
+</div>
+
+<hr />
+
+<!-- Historial de abonos -->
+<div class="lp-payments-section">
+  <div class="lp-payments-header">
+    <span># de abono</span>
+    <span>Ult. abono</span>
+    <span>Fecha del abono</span>
+    <span>Acciones</span>
+  </div>
+
+  <div class="lp-payments-wrapper">
+    <ul id="lp-payments-list" class="lp-payments-list"></ul>
+  </div>
+</div>
+
+<hr />
+
+<!-- Nuevo abono -->
+<div class="lp-add">
+  <!-- Label arriba -->
+  <label class="lp-add-label" for="lp-new-amount">Nuevo abono</label>
+
+  <!-- Fila: input + botones -->
+  <div class="lp-add-row">
+    <div class="lp-add-field">
+      <input
+        id="lp-new-amount"
+        type="text"
+        placeholder="Ej. 10.00"
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="lp-add-actions">
+      <button id="lp-cancel-btn" class="btn ghost" type="button">
+        Salir
+      </button>
+      <button id="lp-add-btn" class="btn primary" type="button">
+        Abonar
+      </button>
+    </div>
+  </div>
+</div>
+</div>
+  </div>
+</div>
+</body>
+</html>
