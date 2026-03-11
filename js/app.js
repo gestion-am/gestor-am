@@ -1,6 +1,7 @@
-// ============================
+// gestor-am/js/app.js
+
 // CONFIGURACIÓN Y UTILIDADES
-// ============================
+
 
 const SESSION_KEY = "gestor_am_session";
 const DEFAULT_INTEREST_RATE = 10;
@@ -28,34 +29,94 @@ function setSession(session) {
 
 // --- helpers de API ---
 
+function getBrowserTimezoneOffsetMinutes() {
+  return String(new Date().getTimezoneOffset());
+}
+
+function authHeader() {
+  const s = CURRENT_SESSION || getSession();
+
+  const baseHeaders = {
+    "X-Timezone-Offset-Minutes": getBrowserTimezoneOffsetMinutes(),
+  };
+
+  if (!s || !s.token) return baseHeaders;
+
+  return {
+    ...baseHeaders,
+    Authorization: `Bearer ${s.token}`,
+  };
+}
+
+function saveLoginToast(message, type = "success") {
+  sessionStorage.setItem(
+    "gestor_am_login_toast",
+    JSON.stringify({ message, type })
+  );
+}
+
+function forceLogoutWithToast(message) {
+  setSession(null);
+  saveLoginToast(message, "error");
+  window.location.href = "index.html";
+}
+
+async function apiFetch(path, options = {}) {
+  const headers = {
+    ...(options.headers || {}),
+    ...authHeader(),
+  };
+
+  const res = await fetch(path, { ...options, headers });
+
+  // Si el server dice 401, cerramos sesión y explicamos
+  if (res.status === 401) {
+    let data = null;
+    try { data = await res.json(); } catch {}
+
+    const code = data && data.code ? data.code : "UNAUTHORIZED";
+
+    if (code === "SESSION_INVALIDATED") {
+      forceLogoutWithToast("Tu sesión fue cerrada porque tu contraseña fue cambiada.");
+      return { ok: false, code };
+    }
+
+    if (code === "IDLE_TIMEOUT") {
+  forceLogoutWithToast("Tu sesión se cerró por inactividad (1 hora).");
+  return { ok: false, code };
+}
+
+    if (code === "USER_DISABLED") {
+      forceLogoutWithToast("Tu sesión fue cerrada: Tu usuario fue inhabilitado.");
+      return { ok: false, code };
+    }
+
+    forceLogoutWithToast("Tu sesión expiró. Inicia sesión nuevamente.");
+    return { ok: false, code };
+  }
+
+  // normales
+  try {
+    return await res.json();
+  } catch {
+    return { ok: false, message: "Respuesta inválida del servidor" };
+  }
+}
+
 async function apiGet(path) {
-  const res = await fetch(path);
-  return res.json();
+  return apiFetch(path, { method: "GET" });
 }
 
 async function apiPost(path, data) {
-  const res = await fetch(path, {
+  return apiFetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data || {}),
   });
-  return res.json();
 }
 
 async function apiDelete(path) {
-  const res = await fetch(path, { method: "DELETE" });
-  return res.json();
-}
-
-
-
-// --- helpers varios del front ---
-
-function formatDate(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("es-EC");
+  return apiFetch(path, { method: "DELETE" });
 }
 
 // --- helpers varios del front ---
@@ -90,7 +151,20 @@ function formatDate(dateStr) {
   return formatDateTime(dateStr);
 }
 
+function getLocalDateKey(dateStr) {
+  if (!dateStr) return "";
 
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) {
+    return String(dateStr).slice(0, 10);
+  }
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 function parseMoney(str) {
   if (!str) return NaN;
@@ -261,11 +335,14 @@ function initLoginPage() {
         return;
       }
 
-      setSession({
-        userId: data.user.id,
-        username: data.user.username,
-        role: data.user.role || "user",
-      });
+    setSession({
+  token: data.token,
+  userId: data.user.id,
+  username: data.user.username,
+  fullName: data.user.fullName || data.user.username,
+  role: data.user.role || "user",
+});
+
 
       window.location.href = "dashboard.html";
     } catch (err) {
@@ -289,24 +366,133 @@ function initDashboard() {
     return;
   }
   CURRENT_SESSION = session;
+
+
+  // ✅ Verificador de sesión (cada 5s)
+// Si el admin cambió tu contraseña, el server responde 401 y te saca.
+let sessionWatcherInterval = null;
+let sessionWatcherVisibilityBound = false;
+
+function startSessionWatcher() {
+  if (!sessionWatcherInterval) {
+    sessionWatcherInterval = setInterval(async () => {
+      await apiGet("/api/me");
+    }, 5000);
+  }
+
+  if (!sessionWatcherVisibilityBound) {
+    document.addEventListener("visibilitychange", async () => {
+      if (!document.hidden) {
+        await apiGet("/api/me");
+      }
+    });
+    sessionWatcherVisibilityBound = true;
+  }
+}
+// ✅ Cierre por inactividad (1 hora)
+const IDLE_LIMIT_MS = 60 * 60 * 1000; // 1 hora
+let idleTimer = null;
+
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+
+  idleTimer = setTimeout(() => {
+    doLogout("Se ha cerrado sesión por inactividad.");
+  }, IDLE_LIMIT_MS);
+}
+
+// eventos típicos de actividad (mouse, teclado, touch)
+["click", "mousemove", "keydown", "scroll", "touchstart"].forEach((evt) => {
+  window.addEventListener(evt, resetIdleTimer, { passive: true });
+});
+
+resetIdleTimer();
+
+startSessionWatcher();
+
   const isAdmin = session.role === "admin";
 
+  // Avatar con iniciales
   // Avatar con iniciales
   const avatarInitialsEl = document.getElementById("user-avatar-initials");
   if (avatarInitialsEl) {
     avatarInitialsEl.textContent = getInitialsFromUsername(session.username);
   }
 
+  const topbarWelcome = document.getElementById("topbar-welcome");
   const avatarBtn = document.getElementById("user-avatar-btn");
   const dropdown = document.getElementById("user-dropdown");
   const wrapper = document.querySelector(".user-menu-wrapper");
   const changePwdBtn = document.getElementById("btn-change-password");
   const logoutTopBtn = document.getElementById("btn-logout-top");
 
-  function doLogout() {
-    setSession(null);
-    window.location.href = "index.html";
+function getWelcomeName() {
+  return String(session.username || "Usuario").trim() || "Usuario";
+}
+
+function updateTopbarWelcome() {
+  if (!topbarWelcome) return;
+
+  const isMobile = window.innerWidth <= 900;
+  const displayName = getWelcomeName();
+
+  topbarWelcome.textContent = isMobile
+    ? `Bienvenido: ${displayName}`
+    : `Bienvenido Usuario: ${displayName}`;
+}
+
+  updateTopbarWelcome();
+  window.addEventListener("resize", updateTopbarWelcome);
+  // --- Sidebar responsive ---
+  const sidebar = document.querySelector(".sidebar");
+  const sidebarToggleBtn = document.getElementById("sidebar-toggle");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+
+  const changePwdSidebarBtn = document.getElementById("btn-change-password-sidebar");
+  const logoutSidebarBtn = document.getElementById("btn-logout-sidebar");
+
+async function doLogout(message = null) {
+  try {
+    // best effort: cerrar sesión en server
+    await apiPost("/api/logout", {});
+  } catch {}
+
+  setSession(null);
+
+  if (message) {
+    saveLoginToast(message, "error");
   }
+
+  window.location.href = "index.html";
+}
+
+
+  function openSidebar() {
+    if (!sidebar || !sidebarOverlay) return;
+    sidebar.classList.add("open");
+    sidebarOverlay.classList.remove("hidden");
+  }
+
+  function closeSidebar() {
+    if (!sidebar || !sidebarOverlay) return;
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.add("hidden");
+  }
+
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!sidebar) return;
+      const isOpen = sidebar.classList.contains("open");
+      if (isOpen) closeSidebar();
+      else openSidebar();
+    });
+  }
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", closeSidebar);
+  }
+
 
   if (avatarBtn && dropdown && wrapper) {
     avatarBtn.addEventListener("click", (e) => {
@@ -327,6 +513,15 @@ function initDashboard() {
       doLogout();
     });
   }
+
+  // Cerrar sesión desde el footer del sidebar (móvil)
+  if (logoutSidebarBtn) {
+    logoutSidebarBtn.addEventListener("click", () => {
+      closeSidebar();
+      doLogout();
+    });
+  }
+
 
   // Modal cambiar contraseña
   const pwdModal = document.getElementById("change-password-modal");
@@ -355,6 +550,15 @@ function initDashboard() {
       openPwdModal();
     });
   }
+
+  // Cambiar contraseña desde el footer del sidebar (móvil)
+  if (changePwdSidebarBtn && pwdModal) {
+    changePwdSidebarBtn.addEventListener("click", () => {
+      closeSidebar();
+      openPwdModal();
+    });
+  }
+
 
   if (cancelPwdBtn) {
     cancelPwdBtn.addEventListener("click", () => {
@@ -428,7 +632,10 @@ function initDashboard() {
   const menuButtons = document.querySelectorAll(".menu-item");
   menuButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
+      closeSidebar(); // en móvil, cierra el drawer al navegar
+
       const section = btn.dataset.section;
+
       if (!section) return;
 
       menuButtons.forEach((b) => b.classList.remove("active"));
@@ -463,9 +670,10 @@ function initDashboard() {
   // Inicializar secciones
   if (isAdmin) initUsersSection();
   initClientsSection();
-  initLoansSection();
+    initLoansSection();
+  initCashboxSection();
+  initMovementsSection();
 }
-
 // ============================
 // SECCIÓN USUARIOS (ADMIN)
 // ============================
@@ -480,6 +688,7 @@ function initUsersSection() {
 
   const idInput = document.getElementById("user-id");
   const usernameInput = document.getElementById("user-username");
+  const fullNameInput = document.getElementById("user-fullname");
   const passwordInput = document.getElementById("user-password");
   const passwordConfirmInput = document.getElementById("user-password-confirm");
   const roleSelect = document.getElementById("user-role");
@@ -500,7 +709,8 @@ function initUsersSection() {
 
   function clearForm() {
     idInput.value = "";
-    usernameInput.value = "";
+    fullNameInput.value = "";
+usernameInput.value = "";
     passwordInput.value = "";
     if (passwordConfirmInput) passwordConfirmInput.value = "";
     if (roleSelect) roleSelect.value = "user";
@@ -515,7 +725,8 @@ function initUsersSection() {
 
   function openModalForEdit(user) {
     idInput.value = user.id;
-    usernameInput.value = user.username;
+    fullNameInput.value = user.full_name || user.fullName || user.username || "";
+usernameInput.value = user.username;
     if (roleSelect) roleSelect.value = user.role || "user";
     passwordInput.value = "";
     if (passwordConfirmInput) passwordConfirmInput.value = "";
@@ -635,10 +846,19 @@ function initUsersSection() {
       data.users.forEach((user) => {
         const tr = document.createElement("tr");
 
-        const tdUser = document.createElement("td");
-        tdUser.textContent = `${user.username} (${user.role})`;
+       const tdUser = document.createElement("td");
+tdUser.textContent = user.username;
 
-      const tdDate = document.createElement("td");
+const tdType = document.createElement("td");
+const typeSpan = document.createElement("span");
+const isAdminRole = String(user.role || "").toLowerCase() === "admin";
+
+typeSpan.className =
+  "user-type-pill " + (isAdminRole ? "type-admin" : "type-user");
+typeSpan.textContent = isAdminRole ? "Administrador" : "Usuario";
+tdType.appendChild(typeSpan);
+
+const tdDate = document.createElement("td");
 tdDate.textContent = formatDateTime(user.created_at);
 
 
@@ -694,9 +914,10 @@ toggleBtn.addEventListener("click", () => {
         tdActions.appendChild(toggleBtn);
 
         tr.appendChild(tdUser);
-        tr.appendChild(tdDate);
-        tr.appendChild(tdStatus);
-        tr.appendChild(tdActions);
+tr.appendChild(tdType);
+tr.appendChild(tdDate);
+tr.appendChild(tdStatus);
+tr.appendChild(tdActions);
 
         tableBody.appendChild(tr);
       });
@@ -711,6 +932,7 @@ toggleBtn.addEventListener("click", () => {
     e.preventDefault();
     if (errorLabel) errorLabel.textContent = "";
 
+    const fullName = fullNameInput.value.trim();
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     const passwordConfirm = passwordConfirmInput
@@ -719,6 +941,10 @@ toggleBtn.addEventListener("click", () => {
     const role = roleSelect ? roleSelect.value : "user";
     const editingId = idInput.value ? Number(idInput.value) : null;
 
+    if (!fullName) {
+  errorLabel.textContent = "Ingresa el nombre completo.";
+  return;
+}
     if (!username) {
       errorLabel.textContent = "Ingresa un nombre de usuario.";
       return;
@@ -772,12 +998,12 @@ toggleBtn.addEventListener("click", () => {
 
     try {
       const resp = await apiPost("/api/users/save", {
-        id: editingId,
-        username,
-        // si está vacío en edición, no se cambia la contraseña
-        password: password || undefined,
-        role,
-      });
+  id: editingId,
+  fullName,
+  username,
+  password: password || undefined,
+  role,
+});
 
       if (!resp.ok) {
         errorLabel.textContent = resp.message || "No se pudo guardar.";
@@ -833,7 +1059,17 @@ const cedulaInput = document.getElementById("client-id");
 const firstNameInput = document.getElementById("client-firstname");
 const lastNameInput = document.getElementById("client-lastname");
 
-
+// ✅ Cédula: permitir cualquier cosa, pero NO espacios
+if (cedulaInput) {
+  cedulaInput.addEventListener("input", () => {
+    const original = cedulaInput.value;
+    const cleaned = original.replace(/\s+/g, ""); // quita espacios
+    if (original !== cleaned) {
+      cedulaInput.value = cleaned;
+      // Sin toast. Si quieres, podrías poner un mensaje abajo, pero tú pediste nada extra.
+    }
+  });
+}
 
   const clientDetailModal = document.getElementById("client-detail-modal");
   const clientDetailContent = document.getElementById("client-detail-content");
@@ -851,7 +1087,6 @@ const lastNameInput = document.getElementById("client-lastname");
 
   let allClients = [];
   let allLoans = [];
-  const currentUserId = CURRENT_SESSION.userId;
 
   // -------- helpers de modal --------
   function openClientModal() {
@@ -864,7 +1099,7 @@ const lastNameInput = document.getElementById("client-lastname");
     clientModal.classList.add("hidden");
   }
 
-  function openClientDetailModal(html) {
+     function openClientDetailModal(html) {
     clientDetailContent.innerHTML = html;
     clientDetailModal.classList.remove("hidden");
   }
@@ -897,17 +1132,24 @@ const lastNameInput = document.getElementById("client-lastname");
   }
 
 
-  function closeClientDetailModal() {
+   function closeClientDetailModal() {
     clientDetailModal.classList.add("hidden");
   }
 
   // -------- validaciones --------
-  function validateCedula(value) {
-    if (!/^\d{10}$/.test(value)) {
-      return "La cédula debe tener exactamente 10 dígitos numéricos.";
-    }
-    return "";
+function validateCedula(value) {
+  const v = String(value || "");
+
+  // ✅ único requisito: NO espacios
+  if (/\s/.test(v)) {
+    return "La cédula no puede contener espacios.";
   }
+
+  // (opcional) si quieres obligar a que no esté vacío, descomenta:
+  // if (!v.trim()) return "Ingresa la cédula.";
+
+  return "";
+}
 
   function validateName(value, label) {
     const trimmed = value.trim();
@@ -916,7 +1158,7 @@ const lastNameInput = document.getElementById("client-lastname");
     }
     const regex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ]+(?:\s+[A-Za-zÁÉÍÓÚáéíóúÑñ]+)*$/;
     if (!regex.test(trimmed)) {
-      return `${label} solo puede contener letras y espacios (sin números ni caracteres especiales).`;
+      return `El campo ${label} solo puede contener letras y espacios (sin números ni caracteres especiales).`;
     }
     return "";
   }
@@ -925,8 +1167,8 @@ const lastNameInput = document.getElementById("client-lastname");
   async function loadClientsAndLoans() {
     try {
       const [clientsRes, loansRes] = await Promise.all([
-        apiGet(`/api/clients?ownerUserId=${currentUserId}`),
-        apiGet(`/api/loans?ownerUserId=${currentUserId}`),
+        apiGet(`/api/clients`),
+apiGet(`/api/loans`),
       ]);
 
       if (!clientsRes.ok) {
@@ -1015,7 +1257,7 @@ viewBtn.title = "Ver préstamos del cliente";
         const deleteBtn = document.createElement("button");
 deleteBtn.className = "btn small danger";
 deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-deleteBtn.title = "Eliminar préstamo";
+deleteBtn.title = "Eliminar cliente";
 
         deleteBtn.style.marginLeft = "6px";
         deleteBtn.addEventListener("click", () =>
@@ -1034,24 +1276,6 @@ deleteBtn.title = "Eliminar préstamo";
       });
   }
 
-
-function formatDateTime(iso) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  const seconds = String(d.getSeconds()).padStart(2, "0");
-
-  // Formato: dd/MM/yyyy HH:mm:ss
-  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-}
-
-
 async function openClientDetail(client, loans) {
 
   if (!client) return;
@@ -1067,7 +1291,7 @@ async function openClientDetail(client, loans) {
   if (!closedLoans.length) {
     html += `
       <p class="client-detail-empty">
-        El cliente no tiene aún tickets cerrados.
+        El cliente no tiene aún préstamos finalizados.
       </p>
     `;
     openClientDetailModal(html);
@@ -1075,16 +1299,7 @@ async function openClientDetail(client, loans) {
   }
 
   // Contenedor general + cabecera tipo tabla
-     html += `
-    <div class="client-closed-loans">
-      <div class="client-closed-loans-header">
-        <span>MONTO</span>
-        <span>% INT.</span>
-        <span>INICIO</span>
-        <span>FIN</span>
-        <span></span>
-      </div>
-  `;
+      html += `<div class="client-closed-loans">`;
 
   for (const loan of closedLoans) {
     let payments = [];
@@ -1108,11 +1323,21 @@ async function openClientDetail(client, loans) {
           .join("")
       : `<tr><td colspan="3">Sin abonos registrados.</td></tr>`;
 
-    html += `
+      html += `
       <div class="client-closed-loan">
+        <div class="client-closed-loans-header">
+          <span>MONTO</span>
+          <span>% INT.</span>
+          <span>TOTAL</span>
+          <span>INICIO</span>
+          <span>FIN</span>
+          <span></span>
+        </div>
+
         <div class="client-closed-loan-row">
           <span>$${Number(loan.principal).toFixed(2)}</span>
           <span>${Number(loan.interestRate).toFixed(2)} %</span>
+          <span>$${Number(loan.totalAmount).toFixed(2)}</span>
           <span>${formatDateTime(loan.startDate)}</span>
           <span>${formatDateTime(loan.endDate)}</span>
           <button
@@ -1130,8 +1355,8 @@ async function openClientDetail(client, loans) {
             <thead>
               <tr>
                 <th>#</th>
-                <th>Monto</th>
-                <th>Fecha del abono</th>
+                <th>Monto del abono</th>
+                <th>Fecha de abono</th>
               </tr>
             </thead>
             <tbody>
@@ -1211,10 +1436,7 @@ async function openClientDetail(client, loans) {
     deleteConfirmBtn.addEventListener("click", async () => {
       if (!clientPendingDeletion) return;
       try {
-        const resp = await apiPost("/api/clients/delete", {
-          cedula: clientPendingDeletion.id,
-          ownerUserId: currentUserId,
-        });
+        const resp = await apiPost("/api/clients/delete", { cedula: clientPendingDeletion.id });
 
         if (!resp.ok) {
           showToast(
@@ -1235,7 +1457,7 @@ async function openClientDetail(client, loans) {
   }
 
 
-  clientForm.addEventListener("submit", (e) => {
+ clientForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     clientFormError.textContent = "";
 
@@ -1256,37 +1478,26 @@ async function openClientDetail(client, loans) {
     const fullName = `${lastName} ${firstName}`.replace(/\s+/g, " ").trim();
 
 
-    fetch("/api/clients", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    cedula,
-    fullName,
-    ownerUserId: currentUserId,
-  }),
-})
-  .then((res) => res.json())
-  .then((data) => {
-    if (!data.ok) {
-      const msg =
-        data.message ||
-        `El cliente con cédula "${cedula}" ya existe. Intenta con otra cédula.`;
-      clientFormError.textContent = msg;
-      showToast(msg, "error");
-      return;
-    }
+   try {
+  const data = await apiPost("/api/clients", { cedula, fullName });
 
-    showToast("Cliente creado correctamente.", "success");
-    closeClientModal();
-    loadClientsAndLoans();
-  })
-  .catch((err) => {
-    console.error(err);
-    clientFormError.textContent =
-      "No se pudo guardar el cliente. Inténtalo de nuevo.";
-    showToast("No se pudo guardar el cliente.", "error");
-  });
+  if (!data.ok) {
+    const msg =
+      data.message ||
+      `El cliente con cédula "${cedula}" ya existe. Intenta con otra cédula.`;
+    clientFormError.textContent = msg;
+    return;
+  }
 
+  showToast("Cliente creado correctamente.", "success");
+  closeClientModal();
+  loadClientsAndLoans();
+} catch (err) {
+  console.error(err);
+  clientFormError.textContent =
+    "No se pudo guardar el cliente. Inténtalo de nuevo.";
+  showToast("No se pudo guardar el cliente.", "error");
+}
 
   });
 
@@ -1387,9 +1598,8 @@ function initLoansSection() {
 
       try {
         const resp = await apiPost("/api/loans/delete", {
-          loanId: id,
-          ownerUserId: CURRENT_SESSION.userId,
-        });
+  loanId: id,
+});
 
         if (!resp.ok) {
           showToast(resp.message || "No se pudo eliminar.", "error");
@@ -1397,8 +1607,12 @@ function initLoansSection() {
         }
 
         showToast("Préstamo eliminado.", "success");
-        closeLoanDeleteModal();
-        await renderLoans();
+closeLoanDeleteModal();
+await renderLoans();
+
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
       } catch (e) {
         console.error(e);
         showToast("Error de conexión con el servidor.", "error");
@@ -1407,23 +1621,23 @@ function initLoansSection() {
   }
 
 
+ if (interestInput) {
   interestInput.value = `${DEFAULT_INTEREST_RATE.toFixed(2)} %`;
+}
 
-  
-
-  if (!openBtn || !modal || !form || !tableBody) return;
+if (!openBtn || !modal || !form || !tableBody) return;
 
   // ===== Helpers de modal
 
   // Utilidad para formatear fecha a yyyy-mm-dd
-  function formatDateYYYYMMDD(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
+function formatDateYYYYMMDD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
-  function setupLoanCalendar(minDate) {
+function setupLoanCalendar(minDate) {
     if (!calendarEl || typeof FullCalendar === "undefined") {
       console.warn("FullCalendar no está disponible");
       return;
@@ -1555,8 +1769,12 @@ function initLoansSection() {
     interestInput.value = `${clamped.toFixed(2)} %`;
     updateDailyEstimate();
   }
+ if (intMinus) {
   intMinus.addEventListener("click", () => setInterest(parseInterest() - 5));
+}
+if (intPlus) {
   intPlus.addEventListener("click", () => setInterest(parseInterest() + 5));
+}
 
   // ===== Cálculos
  function safeParseMoney(str) {
@@ -1658,6 +1876,25 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
    let currentLoans = [];
   let currentClientsById = new Map();
 
+  function canDeleteLoanLive(loan) {
+  const createdMs = new Date(loan.startDate).getTime();
+  if (!Number.isFinite(createdMs)) return false;
+  return Date.now() - createdMs <= 5 * 60 * 1000;
+}
+
+function refreshLoanDeleteButtonsLive() {
+  if (!currentLoans.length) return;
+
+  tableBody.querySelectorAll('button[data-action="delete"]').forEach((btn) => {
+    const loanId = Number(btn.dataset.id);
+    const loan = currentLoans.find((item) => Number(item.id) === loanId);
+
+    if (!loan || !canDeleteLoanLive(loan)) {
+      btn.remove();
+    }
+  });
+}
+
   // ===== Render tabla
   async function renderLoans() {
     try {
@@ -1700,10 +1937,13 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
 
         const tr = document.createElement("tr");
 
-        // Si la fecha FIN ya pasó y sigue "open", pintamos la fila
-        if (isOverdue) {
-          tr.classList.add("tr-loan-overdue");
-        }
+// ✅ guardamos la fecha fin real en la fila para recalcular “en vivo”
+tr.dataset.endIso = loan.endDate;
+
+// Si la fecha FIN ya pasó y sigue "open", pintamos la fila
+if (isOverdue) {
+  tr.classList.add("tr-loan-overdue");
+}
 
         const client = byId.get(loan.clientId);
 
@@ -1721,7 +1961,7 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
           <td>$${Number(loan.totalAmount).toFixed(2)}</td>
           <td>${formatDateTime(loan.startDate)}</td>
           <td>${formatDateTime(loan.endDate)}</td>
-          <td>$${Number(loan.dailyPayment).toFixed(2)}</td>
+          <td>$${Number(isOverdue ? loan.remainingAmount : loan.dailyPayment).toFixed(2)}</td>
           <td id="loan-remaining-${loan.id}">
             $${Number(loan.remainingAmount).toFixed(2)}
           </td>
@@ -1733,25 +1973,76 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
               <i class="fa-solid fa-dollar-sign"></i>
             </button>
 
-            <button class="btn danger ${canDelete ? "" : "disabled"}"
-                    data-action="delete"
-                    data-id="${loan.id}"
-                    title="${canDelete
-                      ? "Eliminar"
-                      : "No se puede eliminar este registro"}">
-              <i class="fa-solid fa-trash"></i>
-            </button>
+            <button class="btn danger btn-trash ${canDelete ? "" : "disabled"}"
+        data-action="delete"
+        data-id="${loan.id}"
+        title="${canDelete
+          ? "Eliminar"
+          : "No se puede eliminar este registro"}">
+  <i class="fa-solid fa-trash"></i>
+</button>
           </td>
         `;
 
         tableBody.appendChild(tr);
       });
+      // ✅ aplicar rojo inmediatamente después de renderizar
+      applyOverdueStylesLive();
     } catch (err) {
       console.error("Error renderLoans:", err);
       tableBody.innerHTML =
         "<tr><td colspan='11'>Error de conexión</td></tr>";
     }
   }
+
+  // ============================
+// ✅ Overdue watcher (rojo inmediato sin re-login)
+// ============================
+function applyOverdueStylesLive() {
+  const now = new Date();
+
+  // Recorremos filas actuales (solo están los open en la tabla)
+  const rows = tableBody.querySelectorAll("tr");
+  rows.forEach((tr) => {
+    const endIso = tr.dataset.endIso;
+    if (!endIso) return;
+
+    const endDate = new Date(endIso);
+    if (Number.isNaN(endDate.getTime())) return;
+
+    const isOverdue = endDate < now;
+
+    // ✅ si ya se venció, pinta; si no, quita
+    tr.classList.toggle("tr-loan-overdue", isOverdue);
+  });
+}
+
+// Timer: revisa cada 10s (puedes subir a 30s si quieres menos trabajo)
+let overdueTimer = null;
+
+function startOverdueWatcher() {
+  if (overdueTimer) clearInterval(overdueTimer);
+
+  applyOverdueStylesLive();
+  refreshLoanDeleteButtonsLive();
+
+  overdueTimer = setInterval(() => {
+    applyOverdueStylesLive();
+    refreshLoanDeleteButtonsLive();
+  }, 2000);
+}
+
+let overdueVisibilityBound = false;
+
+// Cuando vuelves a la pestaña, actualiza de inmediato
+if (!overdueVisibilityBound) {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      applyOverdueStylesLive();
+    }
+  });
+  overdueVisibilityBound = true;
+}
 
     // Listener ÚNICO para botones de la tabla de préstamos
   tableBody.addEventListener("click", (ev) => {
@@ -1808,27 +2099,41 @@ const lpAddBtn = document.getElementById("lp-add-btn");
 const lpCloseBtn = document.getElementById("lp-close-btn");   // X
 const lpCancelBtn = document.getElementById("lp-cancel-btn"); // botón "Salir"
 const lpPaymentsList = document.getElementById("lp-payments-list");
+const lpActionsHead = document.getElementById("lp-actions-head");
 
 let LP_CURRENT_LOAN = null;
+let lpDeleteWatcher = null;
 
 function openLoanPaymentModal(loan, client) {
   if (!loan) return;
+
   LP_CURRENT_LOAN = loan;
   lpClient.textContent = client ? client.full_name || client.fullName || "-" : "-";
   lpCedula.textContent = loan.clientId;
   lpInitial.textContent = `$${Number(loan.totalAmount).toFixed(2)}`;
   lpRemaining.textContent = `$${Number(loan.remainingAmount).toFixed(2)}`;
-  lpDaily.textContent = `$${Number(loan.dailyPayment).toFixed(2)}`;
+
+  const endDate = new Date(loan.endDate);
+  const isOverdue = !Number.isNaN(endDate.getTime()) && endDate < new Date();
+
+  lpDaily.textContent = `$${Number(
+    isOverdue ? loan.remainingAmount : loan.dailyPayment
+  ).toFixed(2)}`;
   lpPending.textContent = `$${Number(loan.remainingAmount).toFixed(2)}`;
 
   lpNewAmount.value = "";
-  loadLoanPayments(loan.id);
   loanPaymentModal.classList.remove("hidden");
+  loadLoanPayments(loan.id);
 }
 
 function closeLoanPaymentModal() {
   LP_CURRENT_LOAN = null;
   loanPaymentModal.classList.add("hidden");
+
+  if (lpDeleteWatcher) {
+    clearTimeout(lpDeleteWatcher);
+    lpDeleteWatcher = null;
+  }
 }
 
 // Cerrar con la X
@@ -1865,7 +2170,8 @@ async function loadLoanPayments(loanId) {
       return;
     }
     const payments = resp.payments || [];
-    renderPaymentsList(payments);
+renderPaymentsList(payments);
+scheduleLoanPaymentsRefresh(payments);
   } catch (err) {
     console.error(err);
     lpPaymentsList.innerHTML =
@@ -1873,11 +2179,37 @@ async function loadLoanPayments(loanId) {
   }
 }
 
+function scheduleLoanPaymentsRefresh(payments) {
+  if (lpDeleteWatcher) {
+    clearTimeout(lpDeleteWatcher);
+    lpDeleteWatcher = null;
+  }
+
+  if (!Array.isArray(payments) || !payments.length || !LP_CURRENT_LOAN) return;
+
+  const now = Date.now();
+
+  const nextExpiryMs = payments
+    .map((p) => new Date(p.created_at).getTime() + 5 * 60 * 1000 - now)
+    .filter((ms) => ms > 0)
+    .sort((a, b) => a - b)[0];
+
+  if (!Number.isFinite(nextExpiryMs)) return;
+
+  lpDeleteWatcher = setTimeout(async () => {
+    if (!loanPaymentModal.classList.contains("hidden") && LP_CURRENT_LOAN) {
+      await loadLoanPayments(LP_CURRENT_LOAN.id);
+    }
+  }, nextExpiryMs + 120);
+}
+
 
 function renderPaymentsList(payments) {
   lpPaymentsList.innerHTML = "";
 
   if (!payments.length) {
+    if (lpActionsHead) lpActionsHead.classList.add("hidden");
+
     const li = document.createElement("li");
     li.classList.add("lp-payments-empty");
     li.textContent = "Sin abonos registrados.";
@@ -1885,85 +2217,101 @@ function renderPaymentsList(payments) {
     return;
   }
 
-  // Ordenados por fecha
   const sorted = payments
     .slice()
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+  const anyDeletable = sorted.some((p) => {
+    const diffNow = Date.now() - new Date(p.created_at).getTime();
+    return diffNow <= 5 * 60 * 1000;
+  });
+
+  if (lpActionsHead) {
+    lpActionsHead.classList.toggle("hidden", !anyDeletable);
+  }
+
   sorted.forEach((p, index) => {
     const li = document.createElement("li");
     const abonoNumber = index + 1;
+    const diffNow = Date.now() - new Date(p.created_at).getTime();
+    const canDelete = diffNow <= 5 * 60 * 1000;
 
     li.innerHTML = `
       <span>${abonoNumber}</span>
       <span>$${Number(p.amount).toFixed(2)}</span>
       <span>${formatDateTime(p.created_at)}</span>
-      <span>
+      <span class="${anyDeletable ? "" : "hidden"}" data-lp-actions-cell>
+        ${
+          canDelete
+            ? `
         <button
-          class="btn small danger lp-delete-btn"
+          class="btn small danger btn-trash lp-delete-btn"
           data-payid="${p.id}"
           aria-label="Eliminar abono #${abonoNumber}"
         >
           <i class="fa-solid fa-trash"></i>
         </button>
+        `
+            : ""
+        }
       </span>
     `;
 
     const deleteBtn = li.querySelector(".lp-delete-btn");
 
-    deleteBtn.addEventListener("click", async () => {
-      // Revalidar los 5 minutos en el momento del clic
-      const diffNow = Date.now() - new Date(p.created_at).getTime();
-      if (diffNow > 5 * 60 * 1000) {
-        showToast(
-          "Solo puedes eliminar un abono durante los primeros 5 minutos después de registrarlo.",
-          "error"
-        );
-        return;
-      }
-
-      const payId = Number(p.id);
-      try {
-        const del = await apiDelete(`/api/payments/${payId}`);
-        if (!del.ok) {
-          showToast(del.message || "No se pudo eliminar el abono.", "error");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        const diffNowBtn = Date.now() - new Date(p.created_at).getTime();
+        if (diffNowBtn > 5 * 60 * 1000) {
+          showToast(
+            "Solo puedes eliminar un abono durante los primeros 5 minutos después de registrarlo.",
+            "error"
+          );
+          await loadLoanPayments(LP_CURRENT_LOAN.id);
           return;
         }
 
-        showToast("Abono eliminado.", "success");
+        const payId = Number(p.id);
+        try {
+          const del = await apiDelete(`/api/payments/${payId}`);
+          if (!del.ok) {
+            showToast(del.message || "No se pudo eliminar el abono.", "error");
+            return;
+          }
 
-        // 💥 actualización inmediata en la UI
-        // (por si la recarga tarda un poco)
-        li.remove();
+          showToast("Abono eliminado.", "success");
+await loadLoanPayments(LP_CURRENT_LOAN.id);
+await refreshLoansAfterChange();
 
-        // 🔁 Recargar historial del modal para reenumerar # de abono
-        await loadLoanPayments(LP_CURRENT_LOAN.id);
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
 
-        // 🔁 Recargar tabla general de préstamos (y montos pendientes)
-        await refreshLoansAfterChange();
+          const loanResp = await apiGet(
+            `/api/loans?ownerUserId=${CURRENT_SESSION.userId}`
+          );
+          const updatedLoan =
+            loanResp.loans &&
+            loanResp.loans.find((l) => l.id === LP_CURRENT_LOAN.id);
 
-        // 🔁 Actualizar también los datos del header del modal
-        const loanResp = await apiGet(
-          `/api/loans?ownerUserId=${CURRENT_SESSION.userId}`
-        );
-        const updatedLoan =
-          loanResp.loans &&
-          loanResp.loans.find((l) => l.id === LP_CURRENT_LOAN.id);
-
-        if (updatedLoan) {
-          LP_CURRENT_LOAN = updatedLoan;
-          lpRemaining.textContent = `$${Number(
-            updatedLoan.remainingAmount
-          ).toFixed(2)}`;
-          lpPending.textContent = `$${Number(
-            updatedLoan.remainingAmount
-          ).toFixed(2)}`;
+          if (updatedLoan) {
+            LP_CURRENT_LOAN = updatedLoan;
+            lpRemaining.textContent = `$${Number(
+              updatedLoan.remainingAmount
+            ).toFixed(2)}`;
+            lpPending.textContent = `$${Number(
+              updatedLoan.remainingAmount
+            ).toFixed(2)}`;
+            lpDaily.textContent = `$${Number(
+              updatedLoan.dailyPayment
+            ).toFixed(2)}`;
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Error al eliminar abono.", "error");
         }
-      } catch (err) {
-        console.error(err);
-        showToast("Error al eliminar abono.", "error");
-      }
-    });
+      });
+    }
 
     lpPaymentsList.appendChild(li);
   });
@@ -2033,18 +2381,24 @@ if (lpAddBtn) {
             const remaining = Number(LP_CURRENT_LOAN.remainingAmount || 0);
 
       if (remaining <= 0.01) {
-        // ✅ préstamo totalmente cancelado
-        showToast("Préstamo finalizado.", "success");
-        closeLoanPaymentModal();
+  showToast("Préstamo finalizado.", "success");
+  closeLoanPaymentModal();
 
-        // Recargar clientes en tiempo real si la función está disponible
-        if (window.__refreshClientsAndLoans) {
-          await window.__refreshClientsAndLoans();
-        }
-      } else {
+  if (window.__refreshClientsAndLoans) {
+    await window.__refreshClientsAndLoans();
+  }
+
+  if (window.__refreshGeneralMovements) {
+    await window.__refreshGeneralMovements();
+  }
+} else {
         // ✅ solo un abono normal
         showToast("Abono registrado.", "success");
-        lpNewAmount.value = "";
+lpNewAmount.value = "";
+
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
       }
 
     } catch (err) {
@@ -2136,8 +2490,12 @@ const dailyPayment = Number((totalAmount / numDays).toFixed(2));
         return;
       }
       showToast("Préstamo registrado correctamente.", "success");
-      closeModal();
-      await renderLoans();
+closeModal();
+await renderLoans();
+
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
     } catch (err2) {
       console.error(err2);
       errorLabel.textContent = "Error de conexión con el servidor.";
@@ -2146,10 +2504,914 @@ const dailyPayment = Number((totalAmount / numDays).toFixed(2));
   });
 
   // Carga inicial tabla
-  renderLoans();
+renderLoans().then(() => {
+  startOverdueWatcher(); // ✅ rojo inmediato sin re-login
+});
 }
 
+// ============================
+// SECCIÓN CAJA CHICA
+// ============================
 
+function initCashboxSection() {
+  const section = document.getElementById("section-cashbox");
+  if (!section) return;
+
+  const openBtn = document.getElementById("btn-open-cashbox-modal");
+  const tableBody = document.querySelector("#cashbox-table tbody");
+  const actionsHead = document.getElementById("cashbox-actions-head");
+
+const filterStart = document.getElementById("cashbox-date-start");
+const filterEnd = document.getElementById("cashbox-date-end");
+const filterClear = document.getElementById("cashbox-filter-clear");
+
+const cashboxCalendarStartEl = document.getElementById("cashbox-calendar-start");
+const cashboxCalendarEndEl = document.getElementById("cashbox-calendar-end");
+
+let cashboxCalendarStart = null;
+let cashboxCalendarEnd = null;
+
+  const modal = document.getElementById("cashbox-modal");
+  const form = document.getElementById("cashbox-form");
+  const amountInput = document.getElementById("cashbox-amount");
+  const descriptionInput = document.getElementById("cashbox-description");
+  const formError = document.getElementById("cashbox-form-error");
+  const cancelBtn = document.getElementById("cashbox-cancel");
+  const lendBtn = document.getElementById("cashbox-lend-btn");
+  const addBtn = document.getElementById("cashbox-add-btn");
+
+  const confirmModal = document.getElementById("cashbox-confirm-modal");
+  const confirmTitle = document.getElementById("cashbox-confirm-title");
+  const confirmMessage = document.getElementById("cashbox-confirm-message");
+  const confirmCancel = document.getElementById("cashbox-confirm-cancel");
+  const confirmAccept = document.getElementById("cashbox-confirm-accept");
+
+  const deleteModal = document.getElementById("cashbox-delete-modal");
+  const deleteMessage = document.getElementById("cashbox-delete-message");
+  const deleteCancel = document.getElementById("cashbox-delete-cancel");
+  const deleteConfirm = document.getElementById("cashbox-delete-confirm");
+
+  if (!tableBody || !modal || !amountInput || !descriptionInput) return;
+
+  let pendingCashboxType = null;
+  let cashboxPendingDeletion = null;
+  let currentCashboxRows = [];
+
+  function formatDateYYYYMMDD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function hideCashboxCalendars() {
+  if (cashboxCalendarStartEl) cashboxCalendarStartEl.classList.add("hidden");
+  if (cashboxCalendarEndEl) cashboxCalendarEndEl.classList.add("hidden");
+}
+
+function setupCashboxCalendar(which) {
+  if (typeof FullCalendar === "undefined") return;
+
+  const isStart = which === "start";
+  const targetEl = isStart ? cashboxCalendarStartEl : cashboxCalendarEndEl;
+  if (!targetEl) return;
+
+  let calendarInstance = isStart ? cashboxCalendarStart : cashboxCalendarEnd;
+
+  if (!calendarInstance) {
+    calendarInstance = new FullCalendar.Calendar(targetEl, {
+      height: "auto",
+      contentHeight: "auto",
+      initialView: "dayGridMonth",
+      locale: "es",
+      firstDay: 1,
+      headerToolbar: {
+        left: "prev,next",
+        center: "title",
+        right: ""
+      },
+     dateClick(info) {
+  const selected = formatDateYYYYMMDD(info.date);
+
+  if (isStart) {
+    filterStart.value = selected;
+  } else {
+    filterEnd.value = selected;
+  }
+
+  hideCashboxCalendars();
+  loadCashbox();
+}
+    });
+
+   if (isStart) cashboxCalendarStart = calendarInstance;
+else cashboxCalendarEnd = calendarInstance;
+
+requestAnimationFrame(() => {
+  calendarInstance.render();
+  calendarInstance.updateSize();
+});
+  } else {
+    calendarInstance.render();
+    calendarInstance.updateSize();
+  }
+}
+
+function showCashboxCalendar(which) {
+  hideCashboxCalendars();
+
+  if (which === "start" && cashboxCalendarStartEl) {
+    cashboxCalendarStartEl.classList.remove("hidden");
+    setupCashboxCalendar("start");
+
+    requestAnimationFrame(() => {
+      if (cashboxCalendarStart) {
+        cashboxCalendarStart.updateSize();
+      }
+    });
+  }
+
+  if (which === "end" && cashboxCalendarEndEl) {
+    cashboxCalendarEndEl.classList.remove("hidden");
+    setupCashboxCalendar("end");
+
+    requestAnimationFrame(() => {
+      if (cashboxCalendarEnd) {
+        cashboxCalendarEnd.updateSize();
+      }
+    });
+  }
+}
+
+  function resetCashboxForm() {
+    if (form) form.reset();
+    amountInput.value = "";
+    descriptionInput.value = "";
+    formError.textContent = "";
+    pendingCashboxType = null;
+  }
+
+  function openCashboxModal() {
+    resetCashboxForm();
+    modal.classList.remove("hidden");
+  }
+
+  function closeCashboxModal() {
+    modal.classList.add("hidden");
+    pendingCashboxType = null;
+  }
+
+function openConfirmModal(type) {
+  const amount = Number(String(amountInput.value).replace(",", "."));
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    formError.textContent = "Ingresa una cantidad válida.";
+    return;
+  }
+
+  pendingCashboxType = type;
+
+  const actionLabel = type === "ingreso" ? "ingresar" : "prestar";
+
+  if (confirmTitle) {
+    confirmTitle.textContent =
+      type === "ingreso"
+        ? "Confirmar ingreso"
+        : "Confirmar préstamo";
+  }
+
+  if (confirmMessage) {
+    confirmMessage.textContent =
+      `¿Estás seguro de ${actionLabel} $${amount.toFixed(2)}?`;
+  }
+
+  confirmModal.classList.remove("hidden");
+}
+
+  function closeConfirmModal() {
+    confirmModal.classList.add("hidden");
+  }
+
+  function openDeleteModal(row) {
+    cashboxPendingDeletion = row;
+    if (deleteMessage) {
+      deleteMessage.textContent =
+        `¿Deseas eliminar este movimiento de ${row.type} por $${Number(row.amount).toFixed(2)}?`;
+    }
+    deleteModal.classList.remove("hidden");
+  }
+
+  function closeDeleteModal() {
+    deleteModal.classList.add("hidden");
+    cashboxPendingDeletion = null;
+  }
+
+  function buildCashboxQuery() {
+    const params = new URLSearchParams();
+
+    if (filterStart && filterStart.value) {
+      params.set("startDate", filterStart.value);
+    }
+
+    if (filterEnd && filterEnd.value) {
+      params.set("endDate", filterEnd.value);
+    }
+
+    const query = params.toString();
+    return query ? `/api/cashbox?${query}` : "/api/cashbox";
+  }
+
+  function canDeleteCashboxMovement(row) {
+    const createdMs = new Date(row.createdAt).getTime();
+    if (!Number.isFinite(createdMs)) return false;
+    return Date.now() - createdMs <= 5 * 60 * 1000;
+  }
+
+  function updateCashboxActionsVisibility(rows) {
+    const anyDeletable = rows.some((row) => canDeleteCashboxMovement(row));
+
+    if (actionsHead) {
+      actionsHead.classList.toggle("hidden", !anyDeletable);
+    }
+
+    tableBody.querySelectorAll("[data-cashbox-actions-cell]").forEach((td) => {
+      td.classList.toggle("hidden", !anyDeletable);
+    });
+  }
+
+  async function loadCashbox() {
+    try {
+      const resp = await apiGet(buildCashboxQuery());
+
+      if (!resp.ok) {
+        tableBody.innerHTML =
+          "<tr><td colspan='5'>Error cargando movimientos</td></tr>";
+        return;
+      }
+
+      currentCashboxRows = resp.movements || [];
+      renderCashboxTable(currentCashboxRows);
+    } catch (err) {
+      console.error("Error loadCashbox:", err);
+      tableBody.innerHTML =
+        "<tr><td colspan='5'>Error de conexión</td></tr>";
+    }
+  }
+
+  function renderCashboxTable(rows) {
+    tableBody.innerHTML = "";
+
+        if (!rows.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td colspan="5">No hay movimientos registrados en ese rango.</td>
+      `;
+      tableBody.appendChild(tr);
+
+      if (actionsHead) actionsHead.classList.add("hidden");
+      return;
+    }
+
+    const anyDeletable = rows.some((row) => canDeleteCashboxMovement(row));
+    if (actionsHead) {
+      actionsHead.classList.toggle("hidden", !anyDeletable);
+    }
+
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const deletable = canDeleteCashboxMovement(row);
+
+      const typeLabel = row.type === "ingreso" ? "Ingreso" : "Prestamo";
+      const typeClass =
+        row.type === "ingreso" ? "type-ingreso" : "type-prestamo";
+
+      tr.innerHTML = `
+        <td>${row.description ? row.description : "-"}</td>
+        <td>${formatDateTime(row.createdAt)}</td>
+        <td>
+          <span class="cashbox-type-pill ${typeClass}">
+            ${typeLabel}
+          </span>
+        </td>
+        <td>$${Number(row.amount).toFixed(2)}</td>
+        <td data-cashbox-actions-cell class="${anyDeletable ? "" : "hidden"}">
+          ${
+            deletable
+              ? `
+            <button
+  class="btn small danger btn-trash"
+  type="button"
+  data-cashbox-delete-id="${row.id}"
+  title="Eliminar movimiento"
+>
+  <i class="fa-solid fa-trash"></i>
+</button>
+          `
+              : ""
+          }
+        </td>
+      `;
+
+      tableBody.appendChild(tr);
+    });
+  }
+
+  async function submitCashboxMovement() {
+    const amount = Number(String(amountInput.value).replace(",", "."));
+    const description = descriptionInput.value.trim();
+
+    if (!pendingCashboxType) return;
+
+    try {
+      const resp = await apiPost("/api/cashbox", {
+        type: pendingCashboxType,
+        amount,
+        description,
+      });
+
+      if (!resp.ok) {
+        formError.textContent =
+          resp.message || "No se pudo registrar el movimiento.";
+        closeConfirmModal();
+        return;
+      }
+
+      closeConfirmModal();
+      closeCashboxModal();
+
+      showToast(
+        pendingCashboxType === "ingreso"
+          ? "Ingreso registrado correctamente."
+          : "Prestamo registrado correctamente.",
+        "success"
+      );
+
+      await loadCashbox();
+
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
+    } catch (err) {
+      console.error("Error submitCashboxMovement:", err);
+      closeConfirmModal();
+      formError.textContent = "Error de conexión con el servidor.";
+      showToast("Error de conexión con el servidor.", "error");
+    }
+  }
+
+  if (openBtn) {
+    openBtn.addEventListener("click", openCashboxModal);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", closeCashboxModal);
+  }
+
+  if (modal) {
+    const backdrop = modal.querySelector(".modal-backdrop");
+    if (backdrop) {
+      backdrop.addEventListener("click", closeCashboxModal);
+    }
+  }
+
+  amountInput.addEventListener("input", () => {
+    const original = amountInput.value;
+    const cleaned = original.replace(/[^0-9.,]/g, "");
+
+    if (original !== cleaned) {
+      amountInput.value = cleaned;
+      formError.textContent =
+        "La cantidad solo puede contener números, puntos (.) y comas (,).";
+    } else if (
+      formError.textContent.startsWith("La cantidad solo puede")
+    ) {
+      formError.textContent = "";
+    }
+  });
+
+  if (lendBtn) {
+    lendBtn.addEventListener("click", () => {
+      formError.textContent = "";
+      openConfirmModal("prestamo");
+    });
+  }
+
+  if (addBtn) {
+    addBtn.addEventListener("click", () => {
+      formError.textContent = "";
+      openConfirmModal("ingreso");
+    });
+  }
+
+  if (confirmCancel) {
+    confirmCancel.addEventListener("click", closeConfirmModal);
+  }
+
+  if (confirmModal) {
+    const backdrop = confirmModal.querySelector(".modal-backdrop");
+    if (backdrop) {
+      backdrop.addEventListener("click", closeConfirmModal);
+    }
+  }
+
+  if (confirmAccept) {
+    confirmAccept.addEventListener("click", submitCashboxMovement);
+  }
+
+  if (deleteCancel) {
+    deleteCancel.addEventListener("click", closeDeleteModal);
+  }
+
+  if (deleteModal) {
+    const backdrop = deleteModal.querySelector(".modal-backdrop");
+    if (backdrop) {
+      backdrop.addEventListener("click", closeDeleteModal);
+    }
+  }
+
+  if (deleteConfirm) {
+    deleteConfirm.addEventListener("click", async () => {
+      if (!cashboxPendingDeletion) return;
+
+      const diffMs =
+        Date.now() - new Date(cashboxPendingDeletion.createdAt).getTime();
+
+      if (diffMs > 5 * 60 * 1000) {
+        showToast(
+          "No se puede eliminar este movimiento. El tiempo de eliminación (5 minutos) ya expiró.",
+          "error"
+        );
+        closeDeleteModal();
+        await loadCashbox();
+        return;
+      }
+
+      try {
+        const resp = await apiDelete(
+          `/api/cashbox/${cashboxPendingDeletion.id}`
+        );
+
+        if (!resp.ok) {
+          showToast(
+            resp.message || "No se pudo eliminar el movimiento.",
+            "error"
+          );
+          closeDeleteModal();
+          await loadCashbox();
+          return;
+        }
+
+       showToast("Movimiento eliminado correctamente.", "success");
+closeDeleteModal();
+await loadCashbox();
+
+if (window.__refreshGeneralMovements) {
+  await window.__refreshGeneralMovements();
+}
+      } catch (err) {
+        console.error("Error delete cashbox:", err);
+        showToast("Error de conexión con el servidor.", "error");
+      }
+    });
+  }
+
+
+if (filterClear) {
+  filterClear.addEventListener("click", async () => {
+    filterStart.value = "";
+    filterEnd.value = "";
+    hideCashboxCalendars();
+    await loadCashbox();
+  });
+}
+
+if (filterStart) {
+  filterStart.addEventListener("focus", () => showCashboxCalendar("start"));
+  filterStart.addEventListener("click", () => showCashboxCalendar("start"));
+}
+
+if (filterEnd) {
+  filterEnd.addEventListener("focus", () => showCashboxCalendar("end"));
+  filterEnd.addEventListener("click", () => showCashboxCalendar("end"));
+}
+
+document.addEventListener("click", (ev) => {
+  const target = ev.target;
+
+  const clickedInsideStart =
+    cashboxCalendarStartEl && cashboxCalendarStartEl.contains(target);
+  const clickedInsideEnd =
+    cashboxCalendarEndEl && cashboxCalendarEndEl.contains(target);
+
+  const clickedOnStart = filterStart && target === filterStart;
+  const clickedOnEnd = filterEnd && target === filterEnd;
+
+  if (!clickedInsideStart && !clickedInsideEnd && !clickedOnStart && !clickedOnEnd) {
+    hideCashboxCalendars();
+  }
+});
+
+  tableBody.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-cashbox-delete-id]");
+    if (!btn) return;
+
+    const rowId = Number(btn.dataset.cashboxDeleteId);
+    const row = currentCashboxRows.find((item) => Number(item.id) === rowId);
+    if (!row) return;
+
+    const diffMs = Date.now() - new Date(row.createdAt).getTime();
+    if (diffMs > 5 * 60 * 1000) {
+      showToast(
+        "No se puede eliminar este movimiento. El tiempo de eliminación (5 minutos) ya expiró.",
+        "error"
+      );
+      loadCashbox();
+      return;
+    }
+
+    openDeleteModal(row);
+  });
+
+  // watcher liviano para ocultar acciones cuando pasen los 5 minutos
+let cashboxDeleteWatcher = null;
+
+if (cashboxDeleteWatcher) {
+  clearInterval(cashboxDeleteWatcher);
+}
+
+cashboxDeleteWatcher = setInterval(() => {
+  if (!currentCashboxRows.length) return;
+
+  updateCashboxActionsVisibility(currentCashboxRows);
+
+  tableBody.querySelectorAll("[data-cashbox-delete-id]").forEach((btn) => {
+    const rowId = Number(btn.dataset.cashboxDeleteId);
+    const row = currentCashboxRows.find((item) => Number(item.id) === rowId);
+
+    if (!row || !canDeleteCashboxMovement(row)) {
+      btn.remove();
+    }
+  });
+}, 2000);
+
+  loadCashbox();
+}
+
+// ============================
+// SECCIÓN MOVIMIENTOS
+// ============================
+
+function initMovementsSection() {
+  const section = document.getElementById("section-movements");
+  const container = document.getElementById("movements-list");
+
+  const filterStart = document.getElementById("movements-date-start");
+  const filterEnd = document.getElementById("movements-date-end");
+  const filterClear = document.getElementById("movements-filter-clear");
+
+  const calendarStartEl = document.getElementById("movements-calendar-start");
+  const calendarEndEl = document.getElementById("movements-calendar-end");
+
+  const loadMoreWrap = document.getElementById("movements-load-more-wrap");
+  const loadMoreBtn = document.getElementById("movements-load-more");
+
+  if (!section || !container) return;
+
+  let allMovementRows = [];
+  let movementsCalendarStart = null;
+  let movementsCalendarEnd = null;
+  let nextCursorMonth = null;
+  let isFilterMode = false;
+  let isLoadingMore = false;
+
+  function formatDateYYYYMMDD(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function hideMovementsCalendars() {
+    if (calendarStartEl) calendarStartEl.classList.add("hidden");
+    if (calendarEndEl) calendarEndEl.classList.add("hidden");
+  }
+
+  function updateLoadMoreVisibility() {
+    if (!loadMoreWrap) return;
+
+    const shouldShow = !isFilterMode && !!nextCursorMonth && allMovementRows.length > 0;
+    loadMoreWrap.classList.toggle("hidden", !shouldShow);
+  }
+
+  function setupMovementsCalendar(which) {
+    if (typeof FullCalendar === "undefined") return;
+
+    const isStart = which === "start";
+    const targetEl = isStart ? calendarStartEl : calendarEndEl;
+    if (!targetEl) return;
+
+    let instance = isStart ? movementsCalendarStart : movementsCalendarEnd;
+
+    if (!instance) {
+      instance = new FullCalendar.Calendar(targetEl, {
+        height: "auto",
+        contentHeight: "auto",
+        initialView: "dayGridMonth",
+        locale: "es",
+        firstDay: 1,
+        headerToolbar: {
+          left: "prev,next",
+          center: "title",
+          right: ""
+        },
+        dateClick(info) {
+  const selected = formatDateYYYYMMDD(info.date);
+
+  if (isStart) {
+    filterStart.value = selected;
+  } else {
+    filterEnd.value = selected;
+  }
+
+  hideMovementsCalendars();
+  loadMovementsFiltered();
+}
+      });
+
+     if (isStart) movementsCalendarStart = instance;
+else movementsCalendarEnd = instance;
+
+requestAnimationFrame(() => {
+  instance.render();
+  instance.updateSize();
+});
+    } else {
+      instance.render();
+      instance.updateSize();
+    }
+  }
+
+function showMovementsCalendar(which) {
+  hideMovementsCalendars();
+
+  if (which === "start" && calendarStartEl) {
+    calendarStartEl.classList.remove("hidden");
+    setupMovementsCalendar("start");
+
+    requestAnimationFrame(() => {
+      if (movementsCalendarStart) {
+        movementsCalendarStart.updateSize();
+      }
+    });
+  }
+
+  if (which === "end" && calendarEndEl) {
+    calendarEndEl.classList.remove("hidden");
+    setupMovementsCalendar("end");
+
+    requestAnimationFrame(() => {
+      if (movementsCalendarEnd) {
+        movementsCalendarEnd.updateSize();
+      }
+    });
+  }
+}
+
+function formatMovementDateTitle(dateStr) {
+  if (!dateStr) return "";
+
+  const parts = String(dateStr).split("-");
+  if (parts.length !== 3) return dateStr;
+
+  const [year, month, day] = parts.map(Number);
+  const d = new Date(year, month - 1, day);
+
+  if (Number.isNaN(d.getTime())) return dateStr;
+
+  return d.toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+  function getPrettyMovementTitle(item) {
+    const clientName = String(item.clientFullName || "").trim();
+
+    if (item.sourceType === "loan") {
+      if (clientName) return `Préstamo entregado a: ${clientName}`;
+      return "Préstamo entregado";
+    }
+
+    if (item.sourceType === "loan_payment") {
+      if (clientName) return `Abono recibido de: ${clientName}`;
+      return "Abono recibido";
+    }
+
+    if (item.sourceType === "cashbox") {
+      return item.movementType === "credit"
+        ? "Ingreso en caja chica"
+        : "Préstamo desde caja chica";
+    }
+
+    return item.description || "Movimiento";
+  }
+
+  function renderMovements(rows) {
+    container.innerHTML = "";
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="card">No hay movimientos registrados.</div>`;
+      updateLoadMoreVisibility();
+      return;
+    }
+
+   const grouped = new Map();
+
+rows
+  .slice()
+  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  .forEach((row) => {
+    const key = getLocalDateKey(row.createdAt);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+    for (const [dateKey, items] of grouped.entries()) {
+      const block = document.createElement("div");
+      block.className = "movement-date-group";
+
+     const title = document.createElement("h3");
+title.className = "movement-date-title";
+title.textContent = formatMovementDateTitle(dateKey);
+
+      const card = document.createElement("div");
+      card.className = "movement-group-card";
+
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "movement-row";
+
+        const isPositive = item.movementType === "credit";
+        const prettyTitle = getPrettyMovementTitle(item);
+
+        row.innerHTML = `
+          <div class="movement-desc">
+            <div class="movement-desc-title">${prettyTitle}</div>
+            <div class="movement-desc-sub">${formatDateTime(item.createdAt)}</div>
+          </div>
+
+          <div class="movement-amount ${isPositive ? "positive" : "negative"}">
+            ${isPositive ? "+" : "-"}$${Number(item.amount).toFixed(2)}
+          </div>
+
+          <div class="movement-balance">
+            $${Number(item.balance).toFixed(2)}
+          </div>
+        `;
+
+        card.appendChild(row);
+      });
+
+      block.appendChild(title);
+      block.appendChild(card);
+      container.appendChild(block);
+    }
+
+    updateLoadMoreVisibility();
+  }
+
+  async function loadMovementsInitial() {
+    try {
+      isFilterMode = false;
+
+      const resp = await apiGet("/api/movements");
+      if (!resp.ok) {
+        container.innerHTML = `<div class="card">Error cargando movimientos.</div>`;
+        return;
+      }
+
+      allMovementRows = resp.movements || [];
+      nextCursorMonth = resp.nextCursorMonth || null;
+      renderMovements(allMovementRows);
+    } catch (err) {
+      console.error("Error loadMovementsInitial:", err);
+      container.innerHTML = `<div class="card">Error de conexión.</div>`;
+    }
+  }
+
+  async function loadMoreMovements() {
+    if (!nextCursorMonth || isLoadingMore) return;
+
+    try {
+      isLoadingMore = true;
+      loadMoreBtn && (loadMoreBtn.disabled = true);
+
+      const resp = await apiGet(
+        `/api/movements?cursorMonth=${encodeURIComponent(nextCursorMonth)}`
+      );
+
+      if (!resp.ok) {
+        showToast("No se pudo cargar el mes anterior.", "error");
+        return;
+      }
+
+      const newRows = resp.movements || [];
+      nextCursorMonth = resp.nextCursorMonth || null;
+
+      allMovementRows = allMovementRows.concat(newRows);
+
+      allMovementRows.sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+
+      renderMovements(allMovementRows);
+    } catch (err) {
+      console.error("Error loadMoreMovements:", err);
+      showToast("Error de conexión cargando más movimientos.", "error");
+    } finally {
+      isLoadingMore = false;
+      loadMoreBtn && (loadMoreBtn.disabled = false);
+      updateLoadMoreVisibility();
+    }
+  }
+
+  async function loadMovementsFiltered() {
+    try {
+      const params = new URLSearchParams();
+
+      if (filterStart?.value) params.set("startDate", filterStart.value);
+      if (filterEnd?.value) params.set("endDate", filterEnd.value);
+
+      isFilterMode = !!(filterStart?.value || filterEnd?.value);
+
+      const url = params.toString()
+        ? `/api/movements?${params.toString()}`
+        : "/api/movements";
+
+      const resp = await apiGet(url);
+      if (!resp.ok) {
+        container.innerHTML = `<div class="card">Error cargando movimientos.</div>`;
+        return;
+      }
+
+      allMovementRows = resp.movements || [];
+      nextCursorMonth = isFilterMode ? null : resp.nextCursorMonth || null;
+      renderMovements(allMovementRows);
+    } catch (err) {
+      console.error("Error loadMovementsFiltered:", err);
+      container.innerHTML = `<div class="card">Error de conexión.</div>`;
+    }
+  }
+
+  if (filterClear) {
+    filterClear.addEventListener("click", () => {
+      filterStart.value = "";
+      filterEnd.value = "";
+      hideMovementsCalendars();
+      loadMovementsInitial();
+    });
+  }
+
+  if (filterStart) {
+    filterStart.addEventListener("focus", () => showMovementsCalendar("start"));
+    filterStart.addEventListener("click", () => showMovementsCalendar("start"));
+  }
+
+  if (filterEnd) {
+    filterEnd.addEventListener("focus", () => showMovementsCalendar("end"));
+    filterEnd.addEventListener("click", () => showMovementsCalendar("end"));
+  }
+
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener("click", loadMoreMovements);
+  }
+
+  document.addEventListener("click", (ev) => {
+    const target = ev.target;
+
+    const clickedInsideStart =
+      calendarStartEl && calendarStartEl.contains(target);
+    const clickedInsideEnd =
+      calendarEndEl && calendarEndEl.contains(target);
+
+    const clickedOnStart = filterStart && target === filterStart;
+    const clickedOnEnd = filterEnd && target === filterEnd;
+
+    if (
+      !clickedInsideStart &&
+      !clickedInsideEnd &&
+      !clickedOnStart &&
+      !clickedOnEnd
+    ) {
+      hideMovementsCalendars();
+    }
+  });
+
+  loadMovementsInitial();
+  window.__refreshGeneralMovements = loadMovementsInitial;
+}
 // ============================
 // INICIALIZACIÓN GLOBAL
 // ============================

@@ -1,3 +1,5 @@
+<!-- gestor-am/dashboard.html -->
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,7 +18,11 @@
 
 </head>
 <body class="body-dashboard">
+  <!-- Overlay para cerrar sidebar en móvil -->
+  <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+
   <div id="dashboard-page" class="dashboard-layout">
+
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -25,40 +31,72 @@
       </div>
 
      <nav class="sidebar-menu">
-  <button class="menu-item active" data-section="users">
-    <i class="fa-solid fa-users-gear"></i>
-    <span>Usuarios</span>
-  </button>
+ <button class="menu-item active" data-section="users">
+  <i class="fa-solid fa-users-gear"></i>
+  <span class="menu-text">Usuarios</span>
+</button>
+
   <button class="menu-item" data-section="clients">
     <i class="fa-solid fa-address-book"></i>
-    <span>Clientes</span>
+    <span class="menu-text">Clientes</span>
   </button>
-  <button class="menu-item" data-section="loans">
+    <button class="menu-item" data-section="loans">
     <i class="fa-solid fa-hand-holding-dollar"></i>
-    <span>Préstamos</span>
+    <span class="menu-text">Préstamos</span>
   </button>
+
+  <button class="menu-item" data-section="cashbox">
+  <i class="fa-solid fa-cash-register"></i>
+  <span class="menu-text">Caja chica</span>
+</button>
+
+<button class="menu-item" data-section="movements">
+  <i class="fa-solid fa-money-bill-transfer"></i>
+  <span class="menu-text">Movimientos</span>
+</button>
 </nav>
 
-      <!-- OJO: ya no hay botón de cerrar sesión aquí -->
-    </aside>
+<!-- Acciones abajo del sidebar (móvil: burbuja) -->
+<div class="sidebar-footer">
+  <button id="btn-change-password-sidebar" class="sidebar-footer-btn" type="button">
+    <i class="fa-solid fa-key"></i>
+    <span>Cambiar contraseña</span>
+  </button>
+  <button id="btn-logout-sidebar" class="sidebar-footer-btn danger" type="button">
+    <i class="fa-solid fa-right-from-bracket"></i>
+    <span>Cerrar sesión</span>
+  </button>
+</div>
+</aside>
+
 
     <!-- Main -->
     <main class="main-content">
       <header class="main-header">
-        <h1>Panel de gestión</h1>
+  <div class="header-left">
+    <button id="sidebar-toggle" class="hamburger-btn" type="button" aria-label="Abrir menú">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <h1>Panel de gestión</h1>
+  </div>
+
 
         <!-- Avatar con iniciales y menú -->
-        <div class="user-menu-wrapper">
-          <button id="user-avatar-btn" class="user-avatar">
-            <span id="user-avatar-initials">GA</span>
-          </button>
-          <div id="user-dropdown" class="user-dropdown hidden">
+       <div class="topbar-user-block">
+  <div id="topbar-welcome" class="topbar-welcome">Bienvenido Usuario:</div>
+
+  <div class="user-menu-wrapper">
+    <button id="user-avatar-btn" class="user-avatar">
+      <span id="user-avatar-initials">GA</span>
+    </button>
+    <div id="user-dropdown" class="user-dropdown hidden">
             <button id="btn-change-password" class="user-dropdown-item">
               Cambiar contraseña
             </button>
             <button id="btn-logout-top" class="user-dropdown-item">
               Cerrar sesión
             </button>
+          </div>
           </div>
         </div>
       </header>
@@ -80,7 +118,8 @@
   <thead>
     <tr>
       <th>Usuario</th>
-      <th>Fecha creación</th>
+      <th>Tipo</th>
+      <th>Fecha de Creación</th>
       <th>Estado</th>
       <th>Acciones</th>
     </tr>
@@ -129,10 +168,10 @@
   <thead>
     <tr>
       <th>Cédula</th>
-      <th>Nombre completo</th>
-      <th>Fecha de Ingreso</th>
-      <th># Préstamos cerrados</th>
-      <th># Préstamos abiertos</th>
+      <th>Nombre Completo</th>
+      <th>Fecha de Creación</th>
+      <th># Préstamos Cerrados</th>
+      <th># Préstamos Abiertos</th>
       <th>Acciones</th>
     </tr>
   </thead>
@@ -192,6 +231,112 @@
       <tbody><!-- filas dinámicas --></tbody>
     </table>
   </div>
+</section>
+
+<!-- Sección Caja chica -->
+<section id="section-cashbox" class="content-section">
+  <h2>Caja chica</h2>
+
+  <div class="card cashbox-toolbar">
+    <button id="btn-open-cashbox-modal" class="btn primary" type="button">
+      <i class="fa-solid fa-wallet"></i>
+      <span>Registrar movimiento</span>
+    </button>
+
+  <div class="cashbox-filters">
+  <div class="form-group cashbox-filter-group loan-date-group">
+    <label for="cashbox-date-start">Fecha inicio</label>
+    <input
+      type="text"
+      id="cashbox-date-start"
+      placeholder="aaaa-mm-dd"
+      readonly
+    />
+    <div id="cashbox-calendar-start" class="loan-calendar hidden"></div>
+  </div>
+
+  <div class="form-group cashbox-filter-group loan-date-group">
+    <label for="cashbox-date-end">Fecha fin</label>
+    <input
+      type="text"
+      id="cashbox-date-end"
+      placeholder="aaaa-mm-dd"
+      readonly
+    />
+    <div id="cashbox-calendar-end" class="loan-calendar hidden"></div>
+  </div>
+
+  <div class="cashbox-filter-actions">
+    <button id="cashbox-filter-clear" class="btn ghost" type="button">
+      Limpiar
+    </button>
+  </div>
+</div>
+  </div>
+
+  <div class="card table-card cashbox-table-card">
+    <table class="table" id="cashbox-table">
+      <thead>
+        <tr id="cashbox-table-head-row">
+          <th>Descripción</th>
+          <th>Fecha de Creación</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+          <th id="cashbox-actions-head">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- filas dinámicas -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Sección Movimientos -->
+<section id="section-movements" class="content-section">
+  <h2>Movimientos</h2>
+
+  <div class="card cashbox-toolbar">
+    <div class="cashbox-filters">
+      <div class="form-group cashbox-filter-group loan-date-group">
+        <label for="movements-date-start">Fecha inicio</label>
+        <input
+          type="text"
+          id="movements-date-start"
+          placeholder="aaaa-mm-dd"
+          readonly
+        />
+        <div id="movements-calendar-start" class="loan-calendar hidden"></div>
+      </div>
+
+      <div class="form-group cashbox-filter-group loan-date-group">
+        <label for="movements-date-end">Fecha fin</label>
+        <input
+          type="text"
+          id="movements-date-end"
+          placeholder="aaaa-mm-dd"
+          readonly
+        />
+        <div id="movements-calendar-end" class="loan-calendar hidden"></div>
+      </div>
+
+      <div class="cashbox-filter-actions">
+        <button id="movements-filter-clear" class="btn ghost" type="button">
+          Limpiar
+        </button>
+      </div>
+    </div>
+  </div>
+
+ <div id="movements-list" class="movements-list">
+  <!-- contenido dinámico -->
+</div>
+
+<div id="movements-load-more-wrap" class="card hidden" style="display:flex;justify-content:center;">
+  <button id="movements-load-more" class="btn secondary" type="button">
+    Cargar mes anterior
+  </button>
+</div>
 </section>
 
 <!-- Modal: Registrar préstamo -->
@@ -297,6 +442,11 @@
           <input type="hidden" id="user-id">
 
          <div class="form-group">
+  <label for="user-fullname">Nombre completo</label>
+  <input type="text" id="user-fullname" autocomplete="off" maxlength="80" />
+</div>
+
+<div class="form-group">
   <label for="user-username">Usuario</label>
   <input type="text" id="user-username" autocomplete="off" maxlength="20" />
 </div>
@@ -396,7 +546,6 @@
         <input
           type="text"
           id="client-id"
-          maxlength="10"
           autocomplete="off"
         />
       </div>
@@ -513,7 +662,89 @@
       </form>
     </div>
   </div>
-  <div id="toast-container" class="toast-container"></div>
+
+<!-- Modal: Caja chica -->
+<div id="cashbox-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3>Registrar movimiento de caja chica</h3>
+
+    <form id="cashbox-form">
+      <div class="form-group">
+        <label for="cashbox-amount">Cantidad</label>
+        <input
+          type="text"
+          id="cashbox-amount"
+          autocomplete="off"
+          placeholder="Ej. 10.00"
+        />
+      </div>
+
+      <div class="form-group">
+  <label for="cashbox-description">Descripción</label>
+  <textarea
+    id="cashbox-description"
+    class="cashbox-description-input"
+    autocomplete="off"
+    placeholder="Opcional"
+    rows="3"
+  ></textarea>
+</div>
+
+      <p id="cashbox-form-error" class="error-message"></p>
+
+      <div class="modal-actions cashbox-modal-actions">
+        <button type="button" id="cashbox-cancel" class="btn ghost">
+          Cancelar
+        </button>
+        <button type="button" id="cashbox-lend-btn" class="btn danger">
+          Prestar
+        </button>
+        <button type="button" id="cashbox-add-btn" class="btn primary">
+          Ingresar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: confirmar movimiento de caja chica -->
+<div id="cashbox-confirm-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3 id="cashbox-confirm-title">Confirmar movimiento</h3>
+    <p id="cashbox-confirm-message"></p>
+
+    <div class="modal-actions">
+      <button type="button" id="cashbox-confirm-cancel" class="btn secondary">
+        Cancelar
+      </button>
+      <button type="button" id="cashbox-confirm-accept" class="btn primary">
+        Sí, continuar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: eliminar movimiento de caja chica -->
+<div id="cashbox-delete-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box card">
+    <h3>Eliminar movimiento</h3>
+    <p id="cashbox-delete-message">
+      ¿Deseas eliminar este movimiento?
+    </p>
+
+    <div class="modal-actions">
+      <button type="button" id="cashbox-delete-cancel" class="btn secondary">
+        Cancelar
+      </button>
+      <button type="button" id="cashbox-delete-confirm" class="btn danger">
+        Sí, eliminar
+      </button>
+    </div>
+  </div>
+</div>
 
  <!-- Modal: eliminar préstamo -->
 <div id="loan-delete-modal" class="modal hidden">
@@ -539,9 +770,13 @@
 <div id="loan-payment-modal" class="modal hidden">
   <div class="modal-backdrop"></div>
 
-  <div class="modal-box card loan-payment-box">
-   
-       <h3>Abonar préstamo</h3>
+<div class="modal-box card loan-payment-box">
+  <button id="lp-close-btn" class="modal-close" type="button" aria-label="Cerrar">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+
+  <h3>Abonar préstamo</h3>
+
 
 <!-- Info del préstamo -->
 <div class="lp-info">
@@ -568,7 +803,7 @@
     <span># de abono</span>
     <span>Ult. abono</span>
     <span>Fecha del abono</span>
-    <span>Acciones</span>
+    <span id="lp-actions-head">Acciones</span>
   </div>
 
   <div class="lp-payments-wrapper">
@@ -603,7 +838,6 @@
       </button>
     </div>
   </div>
-</div>
 </div>
   </div>
 </div>
