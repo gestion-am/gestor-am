@@ -15,6 +15,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const scryptAsync = promisify(crypto.scrypt);
 const HASH_PREFIX = "scrypt";
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 function isHashedPassword(value) {
   return typeof value === "string" && value.startsWith(`${HASH_PREFIX}$`);
@@ -143,6 +144,16 @@ function fromCents(cents) {
   return Number((cents / 100).toFixed(2));
 }
 
+function getTimeMs(value) {
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isWithinTimeWindow(value, windowMs = FIVE_MINUTES_MS) {
+  const ms = getTimeMs(value);
+  return ms !== null && Date.now() - ms <= windowMs;
+}
+
 async function registerGeneralMovement({
   ownerUserId,
   sourceType,
@@ -253,9 +264,21 @@ function diffDays(from, to) {
 
   const start = new Date(`${fromStr}T00:00:00`);
   const end   = new Date(`${toStr}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
 
-  const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
-  return Math.max(0, diff);
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+
+  let chargeableDays = 0;
+
+  while (cursor <= end) {
+    if (cursor.getDay() !== 0) {
+      chargeableDays += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return Math.max(0, chargeableDays);
 }
 
 function getTodayStr() {
@@ -871,10 +894,7 @@ app.delete("/api/cashbox/:movementId", requireAuth, async (req, res) => {
       return res.json({ ok: false, message: "Movimiento no encontrado." });
     }
 
-    const createdMs = new Date(movement.created_at).getTime();
-    const diffMs = Date.now() - createdMs;
-
-    if (diffMs > 5 * 60 * 1000) {
+    if (!isWithinTimeWindow(movement.created_at)) {
       return res.json({
         ok: false,
         message:
@@ -1321,9 +1341,7 @@ const payment = await dbGet(
     }
 
     // Validar ventana de 5 minutos
-    const createdMs = new Date(payment.created_at).getTime();
-    const diffMs = Date.now() - createdMs;
-    if (diffMs > 5 * 60 * 1000) {
+    if (!isWithinTimeWindow(payment.created_at)) {
       return res.json({
         ok: false,
         message:
@@ -1426,7 +1444,6 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       });
     }
 
-    const now = Date.now();
 
     // ✅ Traer el préstamo SOLO si pertenece al usuario logueado
     const loan = await dbGet(
@@ -1446,7 +1463,7 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       });
     }
 
-    const startDateMs = new Date(loan.startDate).getTime();
+    const startDateMs = getTimeMs(loan.startDate);
     if (!Number.isFinite(startDateMs)) {
       return res.json({
         ok: false,
@@ -1455,9 +1472,7 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       });
     }
 
-    const diffMs = now - startDateMs;
-    const FIVE_MINUTES = 5 * 60 * 1000;
-    if (diffMs > FIVE_MINUTES) {
+    if (!isWithinTimeWindow(loan.startDate)) {
       return res.json({
         ok: false,
         message:

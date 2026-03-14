@@ -1,4 +1,4 @@
-/*gestor-am/css/styles.css*/
+﻿/*gestor-am/css/styles.css*/
 
 :root {
   --bg-dark: #030712;
@@ -46,18 +46,6 @@ body {
   overflow: hidden;
   background: rgba(15, 23, 42, 0.92);
   box-shadow: var(--shadow-soft);
-}
-
-/* Ya no usamos el layout partido */
-.login-left {
-  display: none;
-}
-
-.login-right {
-  padding: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .login-card {
@@ -222,12 +210,6 @@ body {
 .form-group textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
-}
-
-.checkbox-group {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
 }
 
 /* ---------- BOTONES ---------- */
@@ -463,11 +445,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-.current-user-label {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
 .content-section {
   display: none;
   flex-direction: column;
@@ -476,12 +453,6 @@ body {
 
 .content-section.active {
   display: flex;
-}
-
-.section-description {
-  margin-top: 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
 }
 
 /* Cards y tablas */
@@ -579,27 +550,6 @@ body {
 }
 
 
-/* Layouts de formularios */
-
-.form-inline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.form-inline .form-group {
-  min-width: 140px;
-  flex: 1;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  align-items: flex-end;
-}
-
 .toolbar {
   margin-bottom: 10px;
 }
@@ -670,14 +620,8 @@ body {
   }
 
   /* Quitamos el logo de arriba (login-left) para no duplicar */
-  .login-left {
-    display: none !important;
-  }
 
   /* Dejamos solo el card interno como el único cuadro */
-  .login-right {
-    padding: 0 !important;
-  }
 }
 
 /* En móvil: el recuadro del logo que sea SOLO la imagen */
@@ -798,6 +742,8 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 120;
+  padding: 18px;
+  overscroll-behavior: contain;
 }
 
 /* Backdrop para MODALES (no sidebar) */
@@ -813,11 +759,29 @@ body {
   max-width: 400px;
   width: 90%;
   z-index: 50;
+  max-height: calc(100vh - 36px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-box h3 {
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.modal-divider {
+  border: none;
+  height: 1px;
+  margin: 0 0 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 197, 94, 0.04),
+    rgba(148, 163, 184, 0.48),
+    rgba(34, 197, 94, 0.04)
+  );
 }
 
 .modal-actions {
@@ -829,8 +793,8 @@ body {
 
 /* Modal específico de PRÉSTAMOS */
 .loan-modal-box {
-  /* un poco más estrecho horizontalmente */
-  max-width: 480px;
+  width: min(92vw, 360px);
+  max-width: 360px;
 }
 
 /* Layout vertical del formulario de préstamo */
@@ -844,6 +808,20 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.loan-form-row-centered {
+  grid-template-columns: minmax(0, 220px);
+  justify-content: center;
+}
+
+.loan-interest-group label {
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.loan-form-row-summary input {
+  text-align: center;
 }
 
 /* Fila del interés: botones - / + y valor centrado y compacto */
@@ -927,41 +905,6 @@ body {
 }
 /* ---------- Toolbar clientes + búsqueda ---------- */
 
-.toolbar-clients {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.btn-with-icon .btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.client-search-wrapper {
-  position: relative;
-  max-width: 320px;
-  width: 100%;
-}
-
-.client-search-input {
-  width: 100%;
-  padding-right: 32px;
-}
-
-.client-search-clear {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 1rem;
-}
 
 /* Detalle de cliente: lista de préstamos */
 
@@ -1111,6 +1054,62 @@ body {
   color: #bbf7d0;
 }
 
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.btn-action,
+.btn-icon-rect,
+.btn-status-toggle,
+.btn-trash,
+.btn-pay-action,
+#loan-payment-modal .lp-payments-list .btn.danger {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-action i,
+.btn-icon-rect i,
+.btn-status-toggle i,
+.btn-trash i,
+.btn-pay-action i,
+#loan-payment-modal .lp-payments-list .btn.danger i {
+  pointer-events: none;
+  font-size: 0.95rem !important;
+  line-height: 1;
+}
+
+.btn-action-secondary {
+  background: rgba(15, 23, 42, 0.88);
+  color: #dbeafe;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.btn-action-secondary:hover {
+  background: rgba(30, 41, 59, 0.96);
+}
+
+.btn-pay-action {
+  background: rgba(0, 123, 255, 0.12);
+  color: #0b66c2;
+  border: 1px solid rgba(11, 102, 194, 0.55);
+}
+
+.btn-pay-action:hover {
+  background: rgba(11, 102, 194, 0.18);
+}
+
 /*-------------- Calendario de préstamos (FullCalendar)-------------------------*/
 .loan-date-group {
   position: relative; /* referencia para el popup */
@@ -1120,16 +1119,30 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 120;
+  z-index: 260;
   width: 100%;
   max-width: 100%;
+  max-height: min(360px, calc(100vh - 24px));
   border-radius: 12px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
   background: #ffffff;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
   font-size: 0.82rem;
   color: #020617;
-    
+}
+
+.calendar-tap-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 255;
+  background: transparent;
+}
+
+.calendar-tap-shield.hidden {
+  display: none;
 }
 
 /* oculta el popup */
@@ -1142,6 +1155,7 @@ body {
   background: #ffffff;
   color: #111827;
   font-size: 0.8rem;        /* <-- tamaño base de letra */
+  width: 100%;
 }
 
 /* Barra superior (mes, botones prev/next) */
@@ -1193,11 +1207,21 @@ body {
 }
 
 .loan-calendar .fc-scrollgrid-sync-table {
+  width: 100% !important;
+  table-layout: fixed;
   height: auto !important;
+}
+
+.loan-calendar .fc-scrollgrid,
+.loan-calendar .fc-col-header,
+.loan-calendar .fc-daygrid-body,
+.loan-calendar .fc-daygrid-body table {
+  width: 100% !important;
 }
 
 .loan-calendar td,
 .loan-calendar th {
+  width: 14.2857%;
   vertical-align: top;
 }
 
@@ -1268,6 +1292,9 @@ body {
   max-height: 150px;
   overflow-y: auto;
   margin-top: 4px;
+  padding-right: 18px;
+  margin-right: -14px;
+  scrollbar-gutter: stable both-edges;
 }
 
 .lp-payments-list {
@@ -1313,16 +1340,6 @@ body {
 
 
 /* botón abonar (azul semitransparente) */
-.btn.pay {
-  background: rgba(0, 123, 255, 0.12); /* azul claro transparente */
-  color: #0b66c2;
-  border: 1px solid rgba(11, 102, 194, 0.6);
-  padding: 6px 8px;
-  margin-right: 6px;
-  border-radius: 6px;
-}
-.btn.pay i { font-size: 14px; }
-
 /* ===== Overrides finales para modal "Abonar préstamo" ===== */
 
 /* línea divisora igual que las tablas */
@@ -1364,12 +1381,6 @@ body {
   text-align: right;
 }
 
-#loan-payment-modal .lp-payments-wrapper {
-  max-height: 150px;
-  overflow-y: auto;
-  margin-top: 4px;
-}
-
 #loan-payment-modal .lp-payments-list {
   list-style: none;
   margin: 0;
@@ -1407,17 +1418,18 @@ body {
 
 /* Botón de tacho dentro del modal, igual al de las tablas */
 #loan-payment-modal .lp-payments-list .btn.danger {
-  padding: 0 8px;
-  min-width: 34px;
-  height: 30px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 #loan-payment-modal .lp-payments-list .btn.danger i {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: inherit;
 }
 
@@ -1663,6 +1675,53 @@ body {
   .main-content{
     padding: 18px 14px 26px;
   }
+
+  .modal {
+    padding: 12px;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .modal-box {
+    width: min(96vw, 640px);
+    margin: auto;
+  }
+
+  .loan-payment-box,
+  .client-detail-box {
+    width: min(96vw, 760px);
+  }
+
+  .loan-modal-box {
+    width: min(96vw, 360px);
+  }
+
+  .loan-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-info {
+    grid-template-columns: 1fr;
+  }
+
+  #loan-payment-modal .lp-payments-header,
+  #loan-payment-modal .lp-payments-list li {
+    grid-template-columns: 0.8fr 1fr 1.25fr auto;
+    column-gap: 10px;
+  }
+
+  #loan-payment-modal .lp-add-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #loan-payment-modal .lp-add-actions {
+    justify-content: stretch;
+  }
+
+  #loan-payment-modal .lp-add-actions .btn {
+    flex: 1 1 0;
+  }
   
    /* Botones más grandes y fáciles de tocar */
   .sidebar-footer-btn{
@@ -1872,24 +1931,6 @@ body {
 }
 
 /* =========================
-   TACHOS ESTANDARIZADOS
-   ========================= */
-
-.btn-trash {
-  min-width: 34px;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 8px !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-trash i {
-  font-size: 0.9rem !important;
-}
-
-/* =========================
    MOVIMIENTOS
    ========================= */
 
@@ -1974,6 +2015,17 @@ body {
 }
 
 @media (max-width: 700px) {
+  .clients-toolbar,
+  .cashbox-toolbar {
+    align-items: stretch;
+  }
+
+  .search-input-wrapper,
+  .cashbox-filters {
+    width: 100%;
+    max-width: none;
+  }
+
   .movement-row {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -1983,6 +2035,19 @@ body {
   .movement-balance {
     text-align: left;
     min-width: 0;
+  }
+
+  .table-actions {
+    gap: 6px;
+  }
+
+  .loan-calendar {
+    max-width: calc(100vw - 16px);
+    max-height: min(340px, calc(100vh - 16px));
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
   }
 }
 
@@ -1997,3 +2062,4 @@ body {
 #movements-load-more-wrap.hidden {
   display: none !important;
 }
+

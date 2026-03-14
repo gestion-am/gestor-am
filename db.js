@@ -8,6 +8,61 @@ const db = new sqlite3.Database(dbPath);
 
 db.run("PRAGMA foreign_keys = ON");
 
+function ensureUsersColumns() {
+  db.all(`PRAGMA table_info(users)`, (err, columns) => {
+    if (err) {
+      console.error("Error leyendo esquema de users:", err);
+      return;
+    }
+
+    const hasFullName = columns.some((col) => col.name === "full_name");
+    const hasCreatedAt = columns.some((col) => col.name === "created_at");
+
+    if (!hasFullName) {
+      db.run(
+        `ALTER TABLE users ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
+        (alterErr) => {
+          if (alterErr) {
+            console.error("Error agregando columna full_name:", alterErr);
+            return;
+          }
+
+          db.run(
+            `UPDATE users
+             SET full_name = username
+             WHERE full_name IS NULL OR full_name = ''`,
+            (updateErr) => {
+              if (updateErr) {
+                console.error("Error rellenando full_name:", updateErr);
+              }
+            }
+          );
+        }
+      );
+    }
+
+    if (!hasCreatedAt) {
+      db.run(`ALTER TABLE users ADD COLUMN created_at TEXT`, (alterErr) => {
+        if (alterErr) {
+          console.error("Error agregando columna created_at:", alterErr);
+          return;
+        }
+
+        db.run(
+          `UPDATE users
+           SET created_at = datetime('now')
+           WHERE created_at IS NULL OR created_at = ''`,
+          (updateErr) => {
+            if (updateErr) {
+              console.error("Error rellenando created_at:", updateErr);
+            }
+          }
+        );
+      });
+    }
+  });
+}
+
 // Crear tablas y usuario admin por defecto
 db.serialize(() => {
   // Tabla de usuarios
@@ -25,34 +80,7 @@ db.serialize(() => {
 )
   `);
 
-    db.all(`PRAGMA table_info(users)`, (err, columns) => {
-    if (err) {
-      console.error("Error leyendo esquema de users:", err);
-      return;
-    }
-
-    const hasFullName = columns.some((col) => col.name === "full_name");
-
-    if (!hasFullName) {
-      db.run(`ALTER TABLE users ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`, (alterErr) => {
-        if (alterErr) {
-          console.error("Error agregando columna full_name:", alterErr);
-          return;
-        }
-
-        db.run(
-          `UPDATE users
-           SET full_name = username
-           WHERE full_name IS NULL OR full_name = ''`,
-          (updateErr) => {
-            if (updateErr) {
-              console.error("Error rellenando full_name:", updateErr);
-            }
-          }
-        );
-      });
-    }
-  });
+  ensureUsersColumns();
 
   db.run(`
   CREATE TABLE IF NOT EXISTS user_sessions (
@@ -67,32 +95,6 @@ db.serialize(() => {
 
 
   // Si la tabla ya existía sin created_at, la agregamos
-  db.all(`PRAGMA table_info(users)`, (err, columns) => {
-    if (err) {
-      console.error("Error leyendo esquema de users:", err);
-      return;
-    }
-    const hasCreatedAt = columns.some((col) => col.name === "created_at");
-    if (!hasCreatedAt) {
-      db.run(`ALTER TABLE users ADD COLUMN created_at TEXT`, (alterErr) => {
-        if (alterErr) {
-          console.error("Error agregando columna created_at:", alterErr);
-          return;
-        }
-        // Rellenar con fecha actual para usuarios antiguos
-        db.run(
-          `UPDATE users
-           SET created_at = datetime('now')
-           WHERE created_at IS NULL OR created_at = ''`,
-          (updateErr) => {
-            if (updateErr) {
-              console.error("Error rellenando created_at:", updateErr);
-            }
-          }
-        );
-      });
-    }
-  });
 
   // Tabla de clientes
   // cedula + owner_user_id es la clave (un mismo número podría existir para otro usuario)

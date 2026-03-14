@@ -378,9 +378,9 @@
 
       </div>
 
-      <!-- Fila 3: interés + pago diario -->
-      <div class="loan-form-row">
-        <div class="form-group">
+      <!-- Fila 3: interés -->
+      <div class="loan-form-row loan-form-row-centered">
+        <div class="form-group loan-interest-group">
           <label for="loan-interest">Interés (%)</label>
           <div class="loan-interest-row">
             <button
@@ -389,7 +389,7 @@
               class="btn secondary"
               title="Reducir 5 %"
             >
-              −
+              -
             </button>
             <input type="text" id="loan-interest" disabled />
             <button
@@ -402,10 +402,18 @@
             </button>
           </div>
         </div>
+      </div>
 
+      <!-- Fila 4: pago diario + pago total -->
+      <div class="loan-form-row loan-form-row-summary">
         <div class="form-group">
           <label for="loan-daily">Pago diario estimado</label>
           <input type="text" id="loan-daily" disabled />
+        </div>
+
+        <div class="form-group">
+          <label for="loan-total">Pago total</label>
+          <input type="text" id="loan-total" disabled />
         </div>
       </div>
 
@@ -843,3 +851,4 @@
 </div>
 </body>
 </html>
+

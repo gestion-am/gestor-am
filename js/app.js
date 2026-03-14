@@ -1,10 +1,14 @@
-// gestor-am/js/app.js
+﻿// gestor-am/js/app.js
 
 // CONFIGURACIÓN Y UTILIDADES
 
 
 const SESSION_KEY = "gestor_am_session";
 const DEFAULT_INTEREST_RATE = 10;
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const CALENDAR_VIEWPORT_MARGIN_PX = 12;
+const CALENDAR_GAP_PX = 8;
+const CALENDAR_TAP_SHIELD_MS = 220;
 let CURRENT_SESSION = null;
 
 // --- helpers de sesión (solo en el navegador) ---
@@ -146,10 +150,197 @@ function getLocalDateOnly(date = new Date()) {
 }
 
 
-// Para no romper nada que ya use formatDate
-function formatDate(dateStr) {
-  return formatDateTime(dateStr);
+function formatDateYYYYMMDD(date = new Date()) {
+  return getLocalDateOnly(date);
 }
+
+function isWithinTimeWindow(dateStr, windowMs = FIVE_MINUTES_MS) {
+  const createdMs = new Date(dateStr).getTime();
+  if (!Number.isFinite(createdMs)) return false;
+  return Date.now() - createdMs <= windowMs;
+}
+
+function getRemainingTimeWindowMs(dateStr, windowMs = FIVE_MINUTES_MS) {
+  const createdMs = new Date(dateStr).getTime();
+  if (!Number.isFinite(createdMs)) return null;
+  return createdMs + windowMs - Date.now();
+}
+
+function consumeUiEvent(event) {
+  if (!event) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
+}
+
+function bindCalendarSurface(calendarEl) {
+  if (!calendarEl || calendarEl.dataset.surfaceBound === "1") return;
+
+  const stopPropagation = (event) => {
+    event.stopPropagation();
+  };
+
+  calendarEl.addEventListener("pointerdown", stopPropagation);
+  calendarEl.addEventListener("mousedown", stopPropagation);
+  calendarEl.addEventListener("touchstart", stopPropagation, { passive: true });
+  calendarEl.addEventListener("click", stopPropagation);
+  calendarEl.dataset.surfaceBound = "1";
+}
+
+function hideCalendarPopover(calendarEl) {
+  if (!calendarEl) return;
+  calendarEl.classList.add("hidden");
+  [
+    "position",
+    "left",
+    "top",
+    "width",
+    "maxWidth",
+    "maxHeight",
+    "zIndex",
+    "visibility",
+  ].forEach((prop) => calendarEl.style.removeProperty(prop));
+}
+
+function positionCalendarPopover(calendarEl, anchorEl) {
+  if (!calendarEl || !anchorEl) return;
+
+  bindCalendarSurface(calendarEl);
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const preferredWidth = Math.min(
+    Math.max(anchorRect.width, 280),
+    viewportWidth - CALENDAR_VIEWPORT_MARGIN_PX * 2
+  );
+
+  calendarEl.style.position = "fixed";
+  calendarEl.style.left = `${CALENDAR_VIEWPORT_MARGIN_PX}px`;
+  calendarEl.style.top = `${CALENDAR_VIEWPORT_MARGIN_PX}px`;
+  calendarEl.style.width = `${preferredWidth}px`;
+  calendarEl.style.maxWidth = `${viewportWidth - CALENDAR_VIEWPORT_MARGIN_PX * 2}px`;
+  calendarEl.style.maxHeight = `${viewportHeight - CALENDAR_VIEWPORT_MARGIN_PX * 2}px`;
+  calendarEl.style.zIndex = "260";
+  calendarEl.style.visibility = "hidden";
+
+  const calendarRect = calendarEl.getBoundingClientRect();
+  const width = Math.min(
+    calendarRect.width || preferredWidth,
+    viewportWidth - CALENDAR_VIEWPORT_MARGIN_PX * 2
+  );
+  const height = Math.min(
+    calendarRect.height || 0,
+    viewportHeight - CALENDAR_VIEWPORT_MARGIN_PX * 2
+  );
+
+  let left = anchorRect.left;
+  if (left + width > viewportWidth - CALENDAR_VIEWPORT_MARGIN_PX) {
+    left = viewportWidth - width - CALENDAR_VIEWPORT_MARGIN_PX;
+  }
+  if (left < CALENDAR_VIEWPORT_MARGIN_PX) {
+    left = CALENDAR_VIEWPORT_MARGIN_PX;
+  }
+
+  let top = anchorRect.bottom + CALENDAR_GAP_PX;
+  if (top + height > viewportHeight - CALENDAR_VIEWPORT_MARGIN_PX) {
+    top = anchorRect.top - height - CALENDAR_GAP_PX;
+  }
+  if (top < CALENDAR_VIEWPORT_MARGIN_PX) {
+    top = CALENDAR_VIEWPORT_MARGIN_PX;
+  }
+
+  calendarEl.style.left = `${Math.round(left)}px`;
+  calendarEl.style.top = `${Math.round(top)}px`;
+  calendarEl.style.visibility = "visible";
+}
+
+let calendarRepositionScheduled = false;
+
+function scheduleVisibleCalendarReposition() {
+  if (calendarRepositionScheduled) return;
+  calendarRepositionScheduled = true;
+
+  requestAnimationFrame(() => {
+    calendarRepositionScheduled = false;
+
+    document.querySelectorAll(".loan-calendar:not(.hidden)").forEach((calendarEl) => {
+      const anchorId = calendarEl.dataset.anchorId;
+      if (!anchorId) return;
+
+      const anchorEl = document.getElementById(anchorId);
+      if (!anchorEl) return;
+
+      positionCalendarPopover(calendarEl, anchorEl);
+    });
+  });
+}
+
+function showCalendarPopover(calendarEl, anchorEl, calendarInstance) {
+  if (!calendarEl || !anchorEl) return;
+
+  if (anchorEl.id) {
+    calendarEl.dataset.anchorId = anchorEl.id;
+  }
+
+  calendarEl.classList.remove("hidden");
+
+  requestAnimationFrame(() => {
+    if (calendarInstance) {
+      calendarInstance.render();
+      calendarInstance.updateSize();
+    }
+
+    positionCalendarPopover(calendarEl, anchorEl);
+  });
+}
+
+let calendarTapShieldTimeoutId = null;
+
+function ensureCalendarTapShield() {
+  let shield = document.getElementById("calendar-tap-shield");
+  if (shield) return shield;
+
+  shield = document.createElement("div");
+  shield.id = "calendar-tap-shield";
+  shield.className = "calendar-tap-shield hidden";
+  shield.setAttribute("aria-hidden", "true");
+
+  const stopShieldEvent = (event) => consumeUiEvent(event);
+  shield.addEventListener("pointerdown", stopShieldEvent);
+  shield.addEventListener("mousedown", stopShieldEvent);
+  shield.addEventListener("touchstart", stopShieldEvent, { passive: false });
+  shield.addEventListener("click", stopShieldEvent);
+
+  document.body.appendChild(shield);
+  return shield;
+}
+
+function activateCalendarTapShield() {
+  if (!document.body) return;
+
+  const shield = ensureCalendarTapShield();
+  shield.classList.remove("hidden");
+
+  if (calendarTapShieldTimeoutId) {
+    window.clearTimeout(calendarTapShieldTimeoutId);
+  }
+
+  calendarTapShieldTimeoutId = window.setTimeout(() => {
+    shield.classList.add("hidden");
+  }, CALENDAR_TAP_SHIELD_MS);
+}
+
+function dismissCalendarAfterSelection(hideFn) {
+  activateCalendarTapShield();
+  window.setTimeout(hideFn, 0);
+}
+
+window.addEventListener("resize", scheduleVisibleCalendarReposition);
+window.addEventListener("orientationchange", scheduleVisibleCalendarReposition);
+window.addEventListener("scroll", scheduleVisibleCalendarReposition, true);
 
 function getLocalDateKey(dateStr) {
   if (!dateStr) return "";
@@ -166,32 +357,31 @@ function getLocalDateKey(dateStr) {
   return `${year}-${month}-${day}`;
 }
 
-function parseMoney(str) {
-  if (!str) return NaN;
-  const normalized = String(str).replace(",", ".").trim();
-  const value = Number(normalized);
-  if (!Number.isFinite(value)) return NaN;
-  const parts = normalized.split(".");
-  if (parts[1] && parts[1].length > 2) return NaN;
-  return value;
-}
-
 
 
 // Helper para diferenciar días (para abonos) SIN contar el mismo día y usando fecha local
 function diffDays(from, to) {
-  // forzamos a "solo fecha" y 00:00 local en ambos lados
-  const fromStr = String(from).slice(0, 10); // yyyy-mm-dd
-  const toStr = String(to).slice(0, 10);     // yyyy-mm-dd
+  const fromStr = String(from).slice(0, 10);
+  const toStr = String(to).slice(0, 10);
 
   const start = new Date(`${fromStr}T00:00:00`);
   const end = new Date(`${toStr}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
 
-  // número de días completos entre start y end (como daysBetween del front)
-  const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
-  return Math.max(1, diff);
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+
+  let chargeableDays = 0;
+
+  while (cursor <= end) {
+    if (cursor.getDay() !== 0) {
+      chargeableDays += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return Math.max(1, chargeableDays);
 }
-
 
 function getInitialsFromUsername(username) {
   if (!username) return "US";
@@ -284,6 +474,29 @@ function initPasswordToggles() {
         }
       }
     });
+  });
+}
+
+function initModalDividers() {
+  [
+    "client-detail-modal",
+    "user-modal",
+    "client-modal",
+    "change-password-modal",
+    "cashbox-modal",
+    "loan-modal",
+    "loan-payment-modal",
+  ].forEach((modalId) => {
+    const modal = document.getElementById(modalId);
+    const title = modal?.querySelector(".modal-box > h3");
+    if (!title) return;
+
+    const nextElement = title.nextElementSibling;
+    if (nextElement && nextElement.classList.contains("modal-divider")) return;
+
+    const divider = document.createElement("hr");
+    divider.className = "modal-divider";
+    title.insertAdjacentElement("afterend", divider);
   });
 }
 
@@ -872,9 +1085,11 @@ tdDate.textContent = formatDateTime(user.created_at);
         tdStatus.appendChild(statusSpan);
 
         const tdActions = document.createElement("td");
+        const actionsWrap = document.createElement("div");
+        actionsWrap.className = "table-actions";
 
         const editBtn = document.createElement("button");
-        editBtn.className = "btn small secondary btn-icon-rect";
+        editBtn.className = "btn secondary btn-action btn-action-secondary btn-icon-rect";
         editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
         editBtn.title = "Editar usuario";
         editBtn.addEventListener("click", () => {
@@ -882,8 +1097,7 @@ tdDate.textContent = formatDateTime(user.created_at);
         });
 
         const toggleBtn = document.createElement("button");
-toggleBtn.className = "btn small btn-status-toggle";
-toggleBtn.style.marginLeft = "6px";
+toggleBtn.className = "btn btn-action btn-status-toggle";
 
 const isSelf = currentUserId && Number(user.id) === Number(currentUserId);
 
@@ -910,8 +1124,9 @@ toggleBtn.addEventListener("click", () => {
 });
 
 
-        tdActions.appendChild(editBtn);
-        tdActions.appendChild(toggleBtn);
+        actionsWrap.appendChild(editBtn);
+        actionsWrap.appendChild(toggleBtn);
+        tdActions.appendChild(actionsWrap);
 
         tr.appendChild(tdUser);
 tr.appendChild(tdType);
@@ -1242,8 +1457,10 @@ apiGet(`/api/loans`),
         const tdActions = document.createElement("td");
 
        // Botón VER
+        const actionsWrap = document.createElement("div");
+        actionsWrap.className = "table-actions";
 const viewBtn = document.createElement("button");
-viewBtn.className = "btn small secondary";
+viewBtn.className = "btn secondary btn-action btn-action-secondary";
 viewBtn.innerHTML = `<i class="fa-solid fa-eye"></i>`;
 viewBtn.title = "Ver préstamos del cliente";
 
@@ -1251,19 +1468,19 @@ viewBtn.title = "Ver préstamos del cliente";
   await openClientDetail(client, clientLoans);
 });
 
-        tdActions.appendChild(viewBtn);
+        actionsWrap.appendChild(viewBtn);
 
         // Botón ELIMINAR
         const deleteBtn = document.createElement("button");
-deleteBtn.className = "btn small danger";
+deleteBtn.className = "btn danger btn-action btn-trash";
 deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
 deleteBtn.title = "Eliminar cliente";
 
-        deleteBtn.style.marginLeft = "6px";
         deleteBtn.addEventListener("click", () =>
           handleDeleteClient(client, clientLoans)
         );
-        tdActions.appendChild(deleteBtn);
+        actionsWrap.appendChild(deleteBtn);
+        tdActions.appendChild(actionsWrap);
 
         tr.appendChild(tdId);
         tr.appendChild(tdName);
@@ -1540,6 +1757,7 @@ function initLoansSection() {
   const intMinus = document.getElementById("loan-int-minus");
   const intPlus = document.getElementById("loan-int-plus");
   const dailyInput = document.getElementById("loan-daily");
+  const totalInput = document.getElementById("loan-total");
   const errorLabel = document.getElementById("loan-form-error");
   const cancelBtn = document.getElementById("loan-cancel");
 
@@ -1629,14 +1847,6 @@ if (!openBtn || !modal || !form || !tableBody) return;
 
   // ===== Helpers de modal
 
-  // Utilidad para formatear fecha a yyyy-mm-dd
-function formatDateYYYYMMDD(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function setupLoanCalendar(minDate) {
     if (!calendarEl || typeof FullCalendar === "undefined") {
       console.warn("FullCalendar no está disponible");
@@ -1660,13 +1870,14 @@ function setupLoanCalendar(minDate) {
   selectable: true,
   validRange: { start: minStr },
   dateClick(info) {
+    consumeUiEvent(info.jsEvent);
     const selectedStr = formatDateYYYYMMDD(info.date);
 
     if (selectedStr < minStr) return;
 
     endDateInput.value = selectedStr; // yyyy-mm-dd
     updateDailyEstimate();
-    calendarEl.classList.add("hidden");
+    dismissCalendarAfterSelection(hideCalendar);
   }
 });
 
@@ -1680,13 +1891,11 @@ function setupLoanCalendar(minDate) {
 
   function showCalendar() {
     if (!calendarEl) return;
-    calendarEl.classList.remove("hidden");
-    if (loanCalendar) loanCalendar.updateSize();
+    showCalendarPopover(calendarEl, endDateInput, loanCalendar);
   }
 
   function hideCalendar() {
-    if (!calendarEl) return;
-    calendarEl.classList.add("hidden");
+    hideCalendarPopover(calendarEl);
   }
 
   function openModal() {
@@ -1738,9 +1947,7 @@ function setupLoanCalendar(minDate) {
   async function loadClientsIntoSelect() {
     clientSelect.innerHTML = "";
     try {
-      const ownerUserId = CURRENT_SESSION.userId;
-      // /api/clients ya existe
-      const res = await apiGet(`/api/clients?ownerUserId=${ownerUserId}`);
+      const res = await apiGet("/api/clients");
       const clients = res.ok ? res.clients : [];
       // opción placeholder
       const opt0 = document.createElement("option");
@@ -1800,12 +2007,6 @@ if (intPlus) {
   return Number.isFinite(n) ? n : 0;
 }
 
-  function daysBetween(startDateOnlyYYYYMMDD, endDateYYYYMMDD) {
-    // 00:00 a 00:00 exclusivas para días completos
-    const s = new Date(`${startDateOnlyYYYYMMDD}T00:00:00`);
-    const e = new Date(`${endDateYYYYMMDD}T00:00:00`);
-    return Math.max(1, Math.round((e - s) / (1000 * 60 * 60 * 24)));
-  }
 
  function updateDailyEstimate() {
   const principal = safeParseMoney(amountInput.value);
@@ -1813,14 +2014,20 @@ if (intPlus) {
 
   const todayDateOnly = getLocalDateOnly();  // <-- usamos fecha local
   const end = endDateInput.value;           // yyyy-mm-dd
+  const total = principal
+    ? Number((principal * (1 + interestRate / 100)).toFixed(2))
+    : 0;
+
+  if (totalInput) {
+    totalInput.value = total ? `$${total.toFixed(2)}` : "";
+  }
 
   if (!principal || !end) {
     dailyInput.value = "";
     return;
   }
 
-  const numDays = daysBetween(todayDateOnly, end); // usa días completos
-  const total = Number((principal * (1 + interestRate / 100)).toFixed(2));
+  const numDays = diffDays(todayDateOnly, end); // usa días completos
   const daily = Number((total / numDays).toFixed(2));
 
 dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
@@ -1877,9 +2084,7 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
   let currentClientsById = new Map();
 
   function canDeleteLoanLive(loan) {
-  const createdMs = new Date(loan.startDate).getTime();
-  if (!Number.isFinite(createdMs)) return false;
-  return Date.now() - createdMs <= 5 * 60 * 1000;
+  return isWithinTimeWindow(loan.startDate);
 }
 
 function refreshLoanDeleteButtonsLive() {
@@ -1898,12 +2103,11 @@ function refreshLoanDeleteButtonsLive() {
   // ===== Render tabla
   async function renderLoans() {
     try {
-      const ownerUserId = CURRENT_SESSION.userId;
 
       // Pedimos préstamos y clientes al backend
       const [loansRes, clientsRes] = await Promise.all([
-        apiGet(`/api/loans?ownerUserId=${ownerUserId}`),
-        apiGet(`/api/clients?ownerUserId=${ownerUserId}`),
+        apiGet("/api/loans"),
+        apiGet("/api/clients"),
       ]);
 
       // Listas seguras
@@ -1922,7 +2126,6 @@ function refreshLoanDeleteButtonsLive() {
 
       // Limpiamos la tabla
       tableBody.innerHTML = "";
-      const now = new Date();
 
       // Solo préstamos abiertos
       const openLoans = loans.filter((loan) => loan.status === "open");
@@ -1947,11 +2150,7 @@ if (isOverdue) {
 
         const client = byId.get(loan.clientId);
 
-        // Ventana de 5 minutos para permitir eliminar
-        const created = new Date(loan.startDate);
-        const diffMs  = now - created;
-        const canDelete =
-          !isNaN(created.getTime()) && diffMs <= 5 * 60 * 1000;
+        const canDelete = isWithinTimeWindow(loan.startDate);
 
         tr.innerHTML = `
           <td>${loan.clientId}</td>
@@ -1966,14 +2165,15 @@ if (isOverdue) {
             $${Number(loan.remainingAmount).toFixed(2)}
           </td>
           <td>
-            <button class="btn pay"
+            <div class="table-actions">
+            <button class="btn btn-action btn-pay-action"
                     data-action="pay"
                     data-id="${loan.id}"
                     title="Abonar">
               <i class="fa-solid fa-dollar-sign"></i>
             </button>
 
-            <button class="btn danger btn-trash ${canDelete ? "" : "disabled"}"
+            <button class="btn danger btn-action btn-trash ${canDelete ? "" : "disabled"}"
         data-action="delete"
         data-id="${loan.id}"
         title="${canDelete
@@ -1981,6 +2181,7 @@ if (isOverdue) {
           : "No se puede eliminar este registro"}">
   <i class="fa-solid fa-trash"></i>
 </button>
+            </div>
           </td>
         `;
 
@@ -2061,10 +2262,7 @@ if (!overdueVisibilityBound) {
       const clientName = client ? client.fullName : "este cliente";
 
       // Verificamos de nuevo si aún se puede eliminar
-      const created = new Date(loan.startDate);
-      const diffMs = Date.now() - created.getTime();
-      const canDelete =
-        !isNaN(created.getTime()) && diffMs <= 5 * 60 * 1000;
+      const canDelete = isWithinTimeWindow(loan.startDate);
 
       if (!canDelete) {
         showToast(
@@ -2187,10 +2385,8 @@ function scheduleLoanPaymentsRefresh(payments) {
 
   if (!Array.isArray(payments) || !payments.length || !LP_CURRENT_LOAN) return;
 
-  const now = Date.now();
-
   const nextExpiryMs = payments
-    .map((p) => new Date(p.created_at).getTime() + 5 * 60 * 1000 - now)
+    .map((p) => getRemainingTimeWindowMs(p.created_at))
     .filter((ms) => ms > 0)
     .sort((a, b) => a - b)[0];
 
@@ -2221,10 +2417,7 @@ function renderPaymentsList(payments) {
     .slice()
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  const anyDeletable = sorted.some((p) => {
-    const diffNow = Date.now() - new Date(p.created_at).getTime();
-    return diffNow <= 5 * 60 * 1000;
-  });
+  const anyDeletable = sorted.some((p) => isWithinTimeWindow(p.created_at));
 
   if (lpActionsHead) {
     lpActionsHead.classList.toggle("hidden", !anyDeletable);
@@ -2233,8 +2426,7 @@ function renderPaymentsList(payments) {
   sorted.forEach((p, index) => {
     const li = document.createElement("li");
     const abonoNumber = index + 1;
-    const diffNow = Date.now() - new Date(p.created_at).getTime();
-    const canDelete = diffNow <= 5 * 60 * 1000;
+    const canDelete = isWithinTimeWindow(p.created_at);
 
     li.innerHTML = `
       <span>${abonoNumber}</span>
@@ -2245,7 +2437,7 @@ function renderPaymentsList(payments) {
           canDelete
             ? `
         <button
-          class="btn small danger btn-trash lp-delete-btn"
+          class="btn danger btn-action btn-trash lp-delete-btn"
           data-payid="${p.id}"
           aria-label="Eliminar abono #${abonoNumber}"
         >
@@ -2261,8 +2453,7 @@ function renderPaymentsList(payments) {
 
     if (deleteBtn) {
       deleteBtn.addEventListener("click", async () => {
-        const diffNowBtn = Date.now() - new Date(p.created_at).getTime();
-        if (diffNowBtn > 5 * 60 * 1000) {
+        if (!isWithinTimeWindow(p.created_at)) {
           showToast(
             "Solo puedes eliminar un abono durante los primeros 5 minutos después de registrarlo.",
             "error"
@@ -2287,9 +2478,7 @@ if (window.__refreshGeneralMovements) {
   await window.__refreshGeneralMovements();
 }
 
-          const loanResp = await apiGet(
-            `/api/loans?ownerUserId=${CURRENT_SESSION.userId}`
-          );
+          const loanResp = await apiGet("/api/loans");
           const updatedLoan =
             loanResp.loans &&
             loanResp.loans.find((l) => l.id === LP_CURRENT_LOAN.id);
@@ -2358,9 +2547,7 @@ if (lpAddBtn) {
       await refreshLoansAfterChange();
 
       // obtener el préstamo actualizado
-      const loanResp = await apiGet(
-        `/api/loans?ownerUserId=${CURRENT_SESSION.userId}`
-      );
+      const loanResp = await apiGet("/api/loans");
       const updatedLoan =
         loanResp.loans &&
         loanResp.loans.find((l) => l.id === LP_CURRENT_LOAN.id);
@@ -2470,7 +2657,7 @@ const totalAmount = Number(
 
 // OJO: usamos fecha LOCAL para contar días
 const startDateOnly = getLocalDateOnly(now); // yyyy-mm-dd local
-const numDays = daysBetween(startDateOnly, endDateOnly);
+const numDays = diffDays(startDateOnly, endDateOnly);
 const dailyPayment = Number((totalAmount / numDays).toFixed(2));
 
 
@@ -2557,16 +2744,9 @@ let cashboxCalendarEnd = null;
   let cashboxPendingDeletion = null;
   let currentCashboxRows = [];
 
-  function formatDateYYYYMMDD(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function hideCashboxCalendars() {
-  if (cashboxCalendarStartEl) cashboxCalendarStartEl.classList.add("hidden");
-  if (cashboxCalendarEndEl) cashboxCalendarEndEl.classList.add("hidden");
+  hideCalendarPopover(cashboxCalendarStartEl);
+  hideCalendarPopover(cashboxCalendarEndEl);
 }
 
 function setupCashboxCalendar(which) {
@@ -2591,6 +2771,7 @@ function setupCashboxCalendar(which) {
         right: ""
       },
      dateClick(info) {
+  consumeUiEvent(info.jsEvent);
   const selected = formatDateYYYYMMDD(info.date);
 
   if (isStart) {
@@ -2599,7 +2780,7 @@ function setupCashboxCalendar(which) {
     filterEnd.value = selected;
   }
 
-  hideCashboxCalendars();
+  dismissCalendarAfterSelection(hideCashboxCalendars);
   loadCashbox();
 }
     });
@@ -2621,25 +2802,13 @@ function showCashboxCalendar(which) {
   hideCashboxCalendars();
 
   if (which === "start" && cashboxCalendarStartEl) {
-    cashboxCalendarStartEl.classList.remove("hidden");
     setupCashboxCalendar("start");
-
-    requestAnimationFrame(() => {
-      if (cashboxCalendarStart) {
-        cashboxCalendarStart.updateSize();
-      }
-    });
+    showCalendarPopover(cashboxCalendarStartEl, filterStart, cashboxCalendarStart);
   }
 
   if (which === "end" && cashboxCalendarEndEl) {
-    cashboxCalendarEndEl.classList.remove("hidden");
     setupCashboxCalendar("end");
-
-    requestAnimationFrame(() => {
-      if (cashboxCalendarEnd) {
-        cashboxCalendarEnd.updateSize();
-      }
-    });
+    showCalendarPopover(cashboxCalendarEndEl, filterEnd, cashboxCalendarEnd);
   }
 }
 
@@ -2722,9 +2891,7 @@ function openConfirmModal(type) {
   }
 
   function canDeleteCashboxMovement(row) {
-    const createdMs = new Date(row.createdAt).getTime();
-    if (!Number.isFinite(createdMs)) return false;
-    return Date.now() - createdMs <= 5 * 60 * 1000;
+    return isWithinTimeWindow(row.createdAt);
   }
 
   function updateCashboxActionsVisibility(rows) {
@@ -2799,7 +2966,7 @@ function openConfirmModal(type) {
             deletable
               ? `
             <button
-  class="btn small danger btn-trash"
+  class="btn danger btn-action btn-trash"
   type="button"
   data-cashbox-delete-id="${row.id}"
   title="Eliminar movimiento"
@@ -2933,10 +3100,7 @@ if (window.__refreshGeneralMovements) {
     deleteConfirm.addEventListener("click", async () => {
       if (!cashboxPendingDeletion) return;
 
-      const diffMs =
-        Date.now() - new Date(cashboxPendingDeletion.createdAt).getTime();
-
-      if (diffMs > 5 * 60 * 1000) {
+      if (!isWithinTimeWindow(cashboxPendingDeletion.createdAt)) {
         showToast(
           "No se puede eliminar este movimiento. El tiempo de eliminación (5 minutos) ya expiró.",
           "error"
@@ -3019,8 +3183,7 @@ document.addEventListener("click", (ev) => {
     const row = currentCashboxRows.find((item) => Number(item.id) === rowId);
     if (!row) return;
 
-    const diffMs = Date.now() - new Date(row.createdAt).getTime();
-    if (diffMs > 5 * 60 * 1000) {
+    if (!canDeleteCashboxMovement(row)) {
       showToast(
         "No se puede eliminar este movimiento. El tiempo de eliminación (5 minutos) ya expiró.",
         "error"
@@ -3084,16 +3247,9 @@ function initMovementsSection() {
   let isFilterMode = false;
   let isLoadingMore = false;
 
-  function formatDateYYYYMMDD(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
   function hideMovementsCalendars() {
-    if (calendarStartEl) calendarStartEl.classList.add("hidden");
-    if (calendarEndEl) calendarEndEl.classList.add("hidden");
+    hideCalendarPopover(calendarStartEl);
+    hideCalendarPopover(calendarEndEl);
   }
 
   function updateLoadMoreVisibility() {
@@ -3125,6 +3281,7 @@ function initMovementsSection() {
           right: ""
         },
         dateClick(info) {
+  consumeUiEvent(info.jsEvent);
   const selected = formatDateYYYYMMDD(info.date);
 
   if (isStart) {
@@ -3133,7 +3290,7 @@ function initMovementsSection() {
     filterEnd.value = selected;
   }
 
-  hideMovementsCalendars();
+  dismissCalendarAfterSelection(hideMovementsCalendars);
   loadMovementsFiltered();
 }
       });
@@ -3155,25 +3312,13 @@ function showMovementsCalendar(which) {
   hideMovementsCalendars();
 
   if (which === "start" && calendarStartEl) {
-    calendarStartEl.classList.remove("hidden");
     setupMovementsCalendar("start");
-
-    requestAnimationFrame(() => {
-      if (movementsCalendarStart) {
-        movementsCalendarStart.updateSize();
-      }
-    });
+    showCalendarPopover(calendarStartEl, filterStart, movementsCalendarStart);
   }
 
   if (which === "end" && calendarEndEl) {
-    calendarEndEl.classList.remove("hidden");
     setupMovementsCalendar("end");
-
-    requestAnimationFrame(() => {
-      if (movementsCalendarEnd) {
-        movementsCalendarEnd.updateSize();
-      }
-    });
+    showCalendarPopover(calendarEndEl, filterEnd, movementsCalendarEnd);
   }
 }
 
@@ -3417,7 +3562,10 @@ title.textContent = formatMovementDateTitle(dateKey);
 // ============================
 
 document.addEventListener("DOMContentLoaded", () => {
+  initModalDividers();
   initPasswordToggles();
   initLoginPage();
   initDashboard();
 });
+
+
