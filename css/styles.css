@@ -174,6 +174,30 @@ body {
     0 14px 36px rgba(0, 0, 0, 0.45);
 }
 
+.body-login .form-group label {
+  color: rgba(226, 232, 240, 0.42);
+  opacity: 0.72;
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.body-login .form-group:focus-within label {
+  color: rgba(229, 231, 235, 0.96);
+  opacity: 1;
+}
+
+.body-login .form-group input,
+.body-login .form-group select,
+.body-login .form-group textarea {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(2, 6, 23, 0.16);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.body-login .toggle-password {
+  color: rgba(226, 232, 240, 0.5);
+}
+
 .login-card-logo {
   background: transparent !important;
   border: none !important;
@@ -222,9 +246,7 @@ body {
 .form-group label {
   font-size: 0.9rem;
   margin-bottom: 4px;
-  color: rgba(226, 232, 240, 0.42);
-  transition: color 0.18s ease, opacity 0.18s ease;
-  opacity: 0.72;
+  color: var(--text-muted);
 }
 
 .form-group input,
@@ -232,18 +254,11 @@ body {
 .form-group textarea {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(2, 6, 23, 0.16);
+  border: 1px solid var(--border-soft);
+  background: #020617;
   color: var(--text-main);
   outline: none;
   font-size: 0.95rem;
-  backdrop-filter: blur(8px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.form-group:focus-within label {
-  color: rgba(229, 231, 235, 0.96);
-  opacity: 1;
 }
 
 .input-with-icon {
@@ -262,7 +277,7 @@ body {
   right: 10px;
   border: none;
   background: transparent;
-  color: rgba(226, 232, 240, 0.5);
+  color: var(--text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
