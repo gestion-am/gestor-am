@@ -2023,15 +2023,55 @@ body {
 }
 
 @media (max-width: 700px) {
+  .main-header {
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+
+  .header-left {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .main-header h1 {
+    font-size: 1.15rem;
+    line-height: 1.1;
+  }
+
+  .topbar-user-block,
+  .topbar-welcome {
+    display: none !important;
+  }
+
   .clients-toolbar,
   .cashbox-toolbar {
     align-items: stretch;
+  }
+
+  .clients-toolbar {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  #btn-add-client {
+    align-self: flex-start;
+    width: auto;
+    max-width: 90%;
+    min-width: 0;
+    padding-inline: 14px;
+    line-height: 1.1;
   }
 
   .search-input-wrapper,
   .cashbox-filters {
     width: 100%;
     max-width: none;
+  }
+
+  .search-input-wrapper {
+    min-height: 42px;
+    padding: 8px 12px;
   }
 
   .movement-row {
