@@ -576,10 +576,55 @@ function initLoginEffects() {
   renderLoginFxGrid(grid);
   restartLoginFxAnimation(grid);
 
+  let iconNodes = [];
+  let moveFrame = null;
+  let pendingPoint = null;
   let resizeFrame = null;
   let restartTimer = window.setInterval(() => {
     restartLoginFxAnimation(grid);
   }, 20000);
+
+  const cacheIcons = () => {
+    iconNodes = Array.from(grid.querySelectorAll(".login-fx-icon"));
+  };
+
+  const clearHighlights = () => {
+    iconNodes.forEach((icon) => icon.classList.remove("is-near"));
+  };
+
+  const highlightNearPoint = (x, y) => {
+    const radius = Math.max(52, Math.min(window.innerWidth, window.innerHeight) * 0.085);
+    const radiusSquared = radius * radius;
+
+    iconNodes.forEach((icon) => {
+      const rect = icon.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const deltaX = centerX - x;
+      const deltaY = centerY - y;
+      const distanceSquared = (deltaX * deltaX) + (deltaY * deltaY);
+
+      icon.classList.toggle("is-near", distanceSquared <= radiusSquared);
+    });
+  };
+
+  const scheduleHighlight = (x, y) => {
+    pendingPoint = { x, y };
+    if (moveFrame) return;
+
+    moveFrame = window.requestAnimationFrame(() => {
+      moveFrame = null;
+
+      if (!pendingPoint) {
+        clearHighlights();
+        return;
+      }
+
+      highlightNearPoint(pendingPoint.x, pendingPoint.y);
+    });
+  };
+
+  cacheIcons();
 
   window.addEventListener("resize", () => {
     if (resizeFrame) {
@@ -588,11 +633,52 @@ function initLoginEffects() {
 
     resizeFrame = window.requestAnimationFrame(() => {
       renderLoginFxGrid(grid);
+      cacheIcons();
       restartLoginFxAnimation(grid);
+      clearHighlights();
     });
   }, { passive: true });
 
+  document.addEventListener("pointermove", (event) => {
+    scheduleHighlight(event.clientX, event.clientY);
+  }, { passive: true });
+
+  document.addEventListener("pointerleave", () => {
+    pendingPoint = null;
+    clearHighlights();
+  });
+
+  document.addEventListener("touchstart", (event) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    scheduleHighlight(touch.clientX, touch.clientY);
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (event) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    scheduleHighlight(touch.clientX, touch.clientY);
+  }, { passive: true });
+
+  document.addEventListener("touchend", () => {
+    pendingPoint = null;
+    clearHighlights();
+  }, { passive: true });
+
+  document.addEventListener("touchcancel", () => {
+    pendingPoint = null;
+    clearHighlights();
+  }, { passive: true });
+
+  window.addEventListener("blur", () => {
+    pendingPoint = null;
+    clearHighlights();
+  });
+
   window.addEventListener("pagehide", () => {
+    if (moveFrame) {
+      window.cancelAnimationFrame(moveFrame);
+    }
     window.clearInterval(restartTimer);
     restartTimer = null;
   }, { once: true });

@@ -41,7 +41,7 @@ body {
   isolation: isolate;
   background:
     radial-gradient(circle at top, rgba(34, 197, 94, 0.14), transparent 28%),
-    linear-gradient(180deg, #06111c 0%, #020617 45%, #000 100%);
+    linear-gradient(180deg, #0d1c2a 0%, #0b1725 48%, #08131f 100%);
 }
 
 .body-login::before,
@@ -55,14 +55,14 @@ body {
 
 .body-login::before {
   background:
-    radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.08), transparent 36%),
-    radial-gradient(circle at 20% 15%, rgba(96, 165, 250, 0.08), transparent 30%);
+    radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.1), transparent 38%),
+    radial-gradient(circle at 20% 15%, rgba(96, 165, 250, 0.1), transparent 30%);
 }
 
 .body-login::after {
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55)),
-    radial-gradient(circle at center, transparent 0, rgba(0, 0, 0, 0.34) 82%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.22)),
+    radial-gradient(circle at center, transparent 0, rgba(0, 0, 0, 0.18) 84%);
 }
 
 .login-effects {
@@ -106,18 +106,18 @@ body {
 }
 
 .login-fx-icon {
-  pointer-events: auto;
+  pointer-events: none;
   color: rgba(148, 163, 184, 0.16);
   padding: 0.18em 0.34em;
+  -webkit-tap-highlight-color: transparent;
   transition:
     color 0.18s ease,
     text-shadow 0.18s ease,
     transform 0.18s ease;
 }
 
-.login-fx-icon:hover,
-.login-fx-icon:active,
-.login-fx-icon:focus-visible {
+.login-fx-icon.is-near,
+.login-fx-icon:hover {
   color: #65fe6d;
   text-shadow:
     0 0 22px rgba(101, 254, 109, 0.92),
@@ -151,11 +151,11 @@ body {
   overflow: hidden;
   position: relative;
   z-index: 2;
-  background: rgba(15, 23, 42, 0.24);
+  background: rgba(15, 23, 42, 0.08);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
     0 24px 60px rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
 }
 
 .login-card {
@@ -167,10 +167,10 @@ body {
 
 .login-card--center {
   background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.78), rgba(2, 6, 23, 0.9));
-  border: 1px solid rgba(148, 163, 184, 0.16);
+    linear-gradient(180deg, rgba(2, 6, 23, 0.36), rgba(2, 6, 23, 0.46));
+  border: 1px solid rgba(148, 163, 184, 0.1);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 14px 36px rgba(0, 0, 0, 0.45);
 }
 
@@ -222,7 +222,9 @@ body {
 .form-group label {
   font-size: 0.9rem;
   margin-bottom: 4px;
-  color: var(--text-muted);
+  color: rgba(226, 232, 240, 0.42);
+  transition: color 0.18s ease, opacity 0.18s ease;
+  opacity: 0.72;
 }
 
 .form-group input,
@@ -230,11 +232,18 @@ body {
 .form-group textarea {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid var(--border-soft);
-  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(2, 6, 23, 0.16);
   color: var(--text-main);
   outline: none;
   font-size: 0.95rem;
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.form-group:focus-within label {
+  color: rgba(229, 231, 235, 0.96);
+  opacity: 1;
 }
 
 .input-with-icon {
@@ -253,7 +262,7 @@ body {
   right: 10px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: rgba(226, 232, 240, 0.5);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
