@@ -1762,6 +1762,7 @@ function initLoansSection() {
   const cancelBtn = document.getElementById("loan-cancel");
 
   const calendarEl = document.getElementById("loan-calendar");
+  const calendarAnchorGroup = endDateInput?.closest(".loan-date-group") || null;
   let loanCalendar = null;
 
 
@@ -2072,9 +2073,13 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
     const clickedInsideCalendar = calendarEl.contains(target);
     const clickedOnInput =
       endDateInput && (endDateInput === target || endDateInput.contains(target));
+    const clickedOnAnchorGroup =
+      calendarAnchorGroup &&
+      target instanceof Node &&
+      calendarAnchorGroup.contains(target);
 
     // Si el clic NO fue ni en el calendario ni en el input de fecha, lo ocultamos
-    if (!clickedInsideCalendar && !clickedOnInput) {
+    if (!clickedInsideCalendar && !clickedOnInput && !clickedOnAnchorGroup) {
       hideCalendar();
     }
   });

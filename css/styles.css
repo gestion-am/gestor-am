@@ -834,15 +834,18 @@ body {
 
 /* Botones - y + más pequeños y cuadrados */
 .loan-interest-row button {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   padding: 0;
+  border-radius: 999px;
+  font-size: 1rem;
 }
 
 /* Campo del porcentaje más estrecho y sin estirarse */
 .loan-interest-row input {
-  flex: 0 0 110px;           /* ancho fijo ~110px */
-  width: 110px;
+  flex: 0 0 138px;
+  width: 138px;
+  max-width: 100%;
   text-align: center;
 }
 
@@ -1693,11 +1696,16 @@ body {
   }
 
   .loan-modal-box {
-    width: min(96vw, 360px);
+    width: min(96vw, 389px);
   }
 
   .loan-form-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .loan-form-row-centered {
+    grid-template-columns: minmax(0, 240px);
   }
 
   .lp-info {
