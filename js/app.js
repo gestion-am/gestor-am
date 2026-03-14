@@ -505,9 +505,103 @@ function initModalDividers() {
 // LOGIN
 // ============================
 
+const LOGIN_FX_ICON_CLASSES = [
+  "fas fa-store",
+  "fas fa-user-clock",
+  "fas fa-donate",
+  "fas fa-chart-pie",
+  "fas fa-file-signature",
+  "fas fa-hand-holding-usd",
+  "fas fa-id-card",
+  "far fa-money-bill-alt",
+  "fas fa-people-carry",
+  "fas fa-chart-line",
+  "fas fa-shopping-cart",
+  "fas fa-suitcase",
+  "fas fa-user-tie",
+  "fas fa-dollar-sign",
+  "fas fa-balance-scale",
+  "fas fa-book",
+  "fas fa-coins",
+  "fas fa-chart-bar",
+  "fas fa-comments-dollar",
+  "fas fa-clipboard-list",
+];
+
+function createLoginFxIconsMarkup(offset = 0) {
+  return LOGIN_FX_ICON_CLASSES.map((_, index) => {
+    const iconIndex = (index + offset) % LOGIN_FX_ICON_CLASSES.length;
+    return `<i class="login-fx-icon ${LOGIN_FX_ICON_CLASSES[iconIndex]}" aria-hidden="true"></i>`;
+  }).join("");
+}
+
+function renderLoginFxGrid(grid) {
+  if (!grid) return;
+
+  const rowCount = Math.max(12, Math.ceil(window.innerHeight / 54) + 6);
+  const rows = Array.from({ length: rowCount }, (_, rowIndex) => {
+    const direction = rowIndex % 2 === 0 ? "left" : "right";
+    const firstTrack = createLoginFxIconsMarkup(rowIndex % LOGIN_FX_ICON_CLASSES.length);
+
+    return `
+      <div class="login-fx-row" data-direction="${direction}">
+        <div class="login-fx-track">${firstTrack}</div>
+        <div class="login-fx-track">${firstTrack}</div>
+      </div>
+    `;
+  }).join("");
+
+  grid.innerHTML = rows;
+}
+
+function restartLoginFxAnimation(grid) {
+  if (!grid) return;
+
+  const tracks = grid.querySelectorAll(".login-fx-track");
+  tracks.forEach((track) => {
+    track.style.animation = "none";
+  });
+
+  void grid.offsetHeight;
+
+  tracks.forEach((track) => {
+    track.style.animation = "";
+  });
+}
+
+function initLoginEffects() {
+  const grid = document.getElementById("login-fx-grid");
+  if (!grid) return;
+
+  renderLoginFxGrid(grid);
+  restartLoginFxAnimation(grid);
+
+  let resizeFrame = null;
+  let restartTimer = window.setInterval(() => {
+    restartLoginFxAnimation(grid);
+  }, 20000);
+
+  window.addEventListener("resize", () => {
+    if (resizeFrame) {
+      window.cancelAnimationFrame(resizeFrame);
+    }
+
+    resizeFrame = window.requestAnimationFrame(() => {
+      renderLoginFxGrid(grid);
+      restartLoginFxAnimation(grid);
+    });
+  }, { passive: true });
+
+  window.addEventListener("pagehide", () => {
+    window.clearInterval(restartTimer);
+    restartTimer = null;
+  }, { once: true });
+}
+
 function initLoginPage() {
   const form = document.getElementById("login-form");
   if (!form) return;
+  initLoginEffects();
   const usernameInput = document.getElementById("login-username");
   const passwordInput = document.getElementById("login-password");
   const errorLabel = document.getElementById("login-error");
