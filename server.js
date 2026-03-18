@@ -174,6 +174,35 @@ async function registerGeneralMovement({
   );
 }
 
+async function hasLoanPaymentHistoryColumn() {
+  const columns = await dbAll(`PRAGMA table_info(loans)`);
+  return columns.some((column) => column.name === "had_payments");
+}
+
+function formatMoney(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "0.00";
+  return numericValue.toFixed(2);
+}
+
+function normalizeMovementLabel(value, fallback = "Registro") {
+  const text = typeof value === "string" ? value.trim() : "";
+  const compact = text.replace(/\s+/g, " ").replace(/"/g, "'");
+  return compact || fallback;
+}
+
+function buildDeletedMovementDescription(label) {
+  return `"${normalizeMovementLabel(label)}" ha sido eliminado.`;
+}
+
+async function rollbackTransactionQuietly() {
+  try {
+    await dbRun("ROLLBACK");
+  } catch (rollbackErr) {
+    console.error("Error haciendo rollback:", rollbackErr);
+  }
+}
+
 async function requireAuth(req, res, next) {
   try {
     const auth = req.headers.authorization || "";
@@ -883,7 +912,7 @@ app.delete("/api/cashbox/:movementId", requireAuth, async (req, res) => {
 
     const movement = await dbGet(
       `
-      SELECT id, created_at
+      SELECT id, type, amount, description, created_at
       FROM cash_box_movements
       WHERE id = ? AND owner_user_id = ?
       `,
@@ -902,20 +931,45 @@ app.delete("/api/cashbox/:movementId", requireAuth, async (req, res) => {
       });
     }
 
-    await dbRun(
-  `DELETE FROM cash_box_movements WHERE id = ? AND owner_user_id = ?`,
-  [movementId, ownerUserId]
-);
+    const deletedAt = new Date().toISOString();
+    const labelBase =
+      movement.type === "ingreso"
+        ? "Ingreso de caja chica"
+        : "Préstamo de caja chica";
+    const reverseDescription = buildDeletedMovementDescription(
+      `${labelBase}: ${normalizeMovementLabel(movement.description, labelBase)}`
+    );
 
-await dbRun(
-  `DELETE FROM general_movements
-   WHERE owner_user_id = ?
-     AND source_type = 'cashbox'
-     AND source_id = ?`,
-  [ownerUserId, movementId]
-);
+    let transactionStarted = false;
 
-res.json({ ok: true });
+    try {
+      await dbRun("BEGIN IMMEDIATE TRANSACTION");
+      transactionStarted = true;
+
+      await registerGeneralMovement({
+        ownerUserId,
+        sourceType: "cashbox_deleted",
+        sourceId: Number(movementId),
+        movementType: movement.type === "ingreso" ? "debit" : "credit",
+        amount: Number(movement.amount),
+        description: reverseDescription,
+        createdAt: deletedAt,
+      });
+
+      await dbRun(
+        `DELETE FROM cash_box_movements WHERE id = ? AND owner_user_id = ?`,
+        [movementId, ownerUserId]
+      );
+
+      await dbRun("COMMIT");
+      transactionStarted = false;
+      res.json({ ok: true });
+    } catch (txErr) {
+      if (transactionStarted) {
+        await rollbackTransactionQuietly();
+      }
+      throw txErr;
+    }
   } catch (err) {
     console.error("Error en DELETE /api/cashbox/:movementId:", err);
     res.status(500).json({ ok: false, message: "Error interno" });
@@ -1112,11 +1166,13 @@ rangeEndIso = monthBounds.endIso;
 app.get("/api/loans", requireAuth, async (req, res) => {
   try {
     const ownerUserId = Number(req.user.id);
+    const hasLoanHistoryColumn = await hasLoanPaymentHistoryColumn();
 
     const rows = await dbAll(
       `
       SELECT id, client_cedula, principal, interest_rate, start_date, end_date,
-             total_amount, daily_payment, remaining_amount, status
+             total_amount, daily_payment, remaining_amount, status,
+             ${hasLoanHistoryColumn ? "COALESCE(had_payments, 0)" : "0"} AS had_payments
       FROM loans
       WHERE owner_user_id = ?
       ORDER BY id DESC
@@ -1135,6 +1191,7 @@ app.get("/api/loans", requireAuth, async (req, res) => {
       dailyPayment: r.daily_payment,
       remainingAmount: r.remaining_amount,
       status: r.status,
+      hadPayments: Boolean(r.had_payments),
     }));
 
     res.json({ ok: true, loans });
@@ -1187,6 +1244,7 @@ res.json({ ok: true });
 app.post("/api/loans/abonar", requireAuth, async (req, res) => {
   try {
     const { loanId, amount } = req.body || {};
+    const hasLoanHistoryColumn = await hasLoanPaymentHistoryColumn();
     if (!loanId || !amount) {
       return res.json({
         ok: false,
@@ -1269,7 +1327,9 @@ const newRemaining = fromCents(newRemainingCents);
     await dbRun(
       `
       UPDATE loans
-      SET remaining_amount = ?, daily_payment = ?, status = ?
+      SET remaining_amount = ?, daily_payment = ?, status = ?${
+        hasLoanHistoryColumn ? ", had_payments = 1" : ""
+      }
       WHERE id = ?
     `,
       [newRemaining, newDaily, newStatus, loanId]
@@ -1327,15 +1387,30 @@ app.delete("/api/payments/:paymentId", requireAuth, async (req, res) => {
 
     const ownerUserId = Number(req.user.id);
 
-// ✅ Trae el pago solo si pertenece a un préstamo del usuario logueado
-const payment = await dbGet(
-  `SELECT p.*
-     FROM loan_payments p
-     JOIN loans l ON l.id = p.loan_id
-    WHERE p.id = ?
-      AND l.owner_user_id = ?`,
-  [paymentId, ownerUserId]
-);
+    const payment = await dbGet(
+      `
+      SELECT
+        p.id,
+        p.loan_id,
+        p.amount,
+        p.created_at,
+        l.remaining_amount AS loan_remaining_amount,
+        l.total_amount AS loan_total_amount,
+        l.end_date AS loan_end_date,
+        l.client_cedula AS client_cedula,
+        COALESCE(c.full_name, '') AS client_full_name
+      FROM loan_payments p
+      JOIN loans l
+        ON l.id = p.loan_id
+       AND l.owner_user_id = ?
+      LEFT JOIN clients c
+        ON c.cedula = l.client_cedula
+       AND c.owner_user_id = l.owner_user_id
+      WHERE p.id = ?
+      `,
+      [ownerUserId, paymentId]
+    );
+
     if (!payment) {
       return res.json({ ok: false, message: "Abono no encontrado" });
     }
@@ -1349,81 +1424,75 @@ const payment = await dbGet(
       });
     }
 
-    // Recuperar préstamo y recalcular
-    const loan = await dbGet(
-      `SELECT * FROM loans WHERE id = ?`,
-      [payment.loan_id]
-    );
+    let newRemainingCents =
+      toCents(payment.loan_remaining_amount) + toCents(payment.amount);
 
- if (loan) {
-  // ✅ Recalcular de forma segura al eliminar:
-  // nuevo saldo = saldo actual + el abono eliminado (en centavos)
-  let newRemainingCents =
-    toCents(loan.remaining_amount) + toCents(payment.amount);
+    const totalCents = toCents(payment.loan_total_amount);
+    if (newRemainingCents > totalCents) newRemainingCents = totalCents;
 
-  // ✅ Clamp: nunca pasar del total (por si algo quedó raro antes)
-  const totalCents = toCents(loan.total_amount);
-  if (newRemainingCents > totalCents) newRemainingCents = totalCents;
+    const todayStr = getTodayStr();
+    const remainingDays = diffDays(todayStr, payment.loan_end_date);
 
-  const todayStr = getTodayStr();
-  const remainingDays = diffDays(todayStr, loan.end_date);
+    let newDaily = 0;
+    let newStatus = "open";
 
-  let newDaily = 0;
-  let newStatus = "open";
-
-  // ✅ SOLO se cierra si ya no debe nada
-  if (newRemainingCents <= 1) {
-    newRemainingCents = 0;
-    newDaily = 0;
-    newStatus = "closed";
-  } else {
-    // ✅ Si NO está vencido: recalcular por días restantes
-    if (remainingDays > 0) {
+    if (newRemainingCents <= 1) {
+      newRemainingCents = 0;
+      newDaily = 0;
+      newStatus = "closed";
+    } else if (remainingDays > 0) {
       const safeDays = Math.max(1, remainingDays);
       const dailyCents = Math.round(newRemainingCents / safeDays);
       newDaily = fromCents(dailyCents);
     } else {
-      // ✅ Si está vencido: el “pago diario” es TODO el saldo pendiente
       newDaily = fromCents(newRemainingCents);
     }
-  }
 
-  const newRemaining = fromCents(newRemainingCents);
+    const newRemaining = fromCents(newRemainingCents);
+    const clientDisplayName =
+      normalizeMovementLabel(payment.client_full_name, "") ||
+      normalizeMovementLabel(payment.client_cedula, "cliente");
+    const reverseDescription = buildDeletedMovementDescription(
+      `Abono de $${formatMoney(payment.amount)} de ${clientDisplayName}`
+    );
+    const deletedAt = new Date().toISOString();
 
-  await dbRun(
-    `
-    UPDATE loans
-    SET remaining_amount = ?, daily_payment = ?, status = ?
-    WHERE id = ?
-    `,
-    [newRemaining, newDaily, newStatus, loan.id]
-  );
-}
+    let transactionStarted = false;
 
-// ✅ borrar el movimiento del ledger ligado a este abono
-await dbRun(
-  `DELETE FROM general_movements
-   WHERE owner_user_id = ?
-     AND source_type = 'loan_payment'
-     AND source_id = ?`,
-  [ownerUserId, paymentId]
-);
+    try {
+      await dbRun("BEGIN IMMEDIATE TRANSACTION");
+      transactionStarted = true;
 
-// compatibilidad por si algunos abonos viejos quedaron guardados con source_id = loan_id
-await dbRun(
-  `DELETE FROM general_movements
-   WHERE owner_user_id = ?
-     AND source_type = 'loan_payment'
-     AND source_id = ?
-     AND amount = ?
-     AND created_at = ?`,
-  [ownerUserId, payment.loan_id, payment.amount, payment.created_at]
-);
+      await dbRun(
+        `
+        UPDATE loans
+        SET remaining_amount = ?, daily_payment = ?, status = ?
+        WHERE id = ? AND owner_user_id = ?
+        `,
+        [newRemaining, newDaily, newStatus, payment.loan_id, ownerUserId]
+      );
 
-// ✅ ahora sí, borramos el abono
-await dbRun(`DELETE FROM loan_payments WHERE id = ?`, [paymentId]);
+      await registerGeneralMovement({
+        ownerUserId,
+        sourceType: "loan_payment_deleted",
+        sourceId: Number(paymentId),
+        movementType: "debit",
+        amount: Number(payment.amount),
+        description: reverseDescription,
+        createdAt: deletedAt,
+      });
 
-res.json({ ok: true });
+      await dbRun(`DELETE FROM loan_payments WHERE id = ?`, [paymentId]);
+
+      await dbRun("COMMIT");
+      transactionStarted = false;
+      res.json({ ok: true });
+    } catch (txErr) {
+      if (transactionStarted) {
+        await rollbackTransactionQuietly();
+      }
+      throw txErr;
+    }
   } catch (err) {
     console.error("Error en DELETE /api/payments/:paymentId:", err);
     res.status(500).json({ ok: false, message: "Error interno" });
@@ -1435,7 +1504,8 @@ res.json({ ok: true });
 app.post("/api/loans/delete", requireAuth, async (req, res) => {
   try {
     const { loanId } = req.body;
-    const ownerUserId = Number(req.user.id); // ✅ SIEMPRE desde el token
+    const ownerUserId = Number(req.user.id);
+    const hasLoanHistoryColumn = await hasLoanPaymentHistoryColumn();
 
     if (!loanId) {
       return res.json({
@@ -1444,15 +1514,28 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       });
     }
 
-
-    // ✅ Traer el préstamo SOLO si pertenece al usuario logueado
     const loan = await dbGet(
-      `SELECT id,
-              owner_user_id AS ownerUserId,
-              start_date     AS startDate
-       FROM loans
-       WHERE id = ?
-         AND owner_user_id = ?`,
+      `
+      SELECT
+        l.id,
+        l.owner_user_id AS ownerUserId,
+        l.start_date AS startDate,
+        l.principal,
+        l.client_cedula,
+        ${hasLoanHistoryColumn ? "COALESCE(l.had_payments, 0)" : "0"} AS had_payments,
+        COALESCE(c.full_name, '') AS client_full_name,
+        EXISTS(
+          SELECT 1
+          FROM loan_payments p
+          WHERE p.loan_id = l.id
+        ) AS has_active_payments
+      FROM loans l
+      LEFT JOIN clients c
+        ON c.cedula = l.client_cedula
+       AND c.owner_user_id = l.owner_user_id
+      WHERE l.id = ?
+        AND l.owner_user_id = ?
+      `,
       [loanId, ownerUserId]
     );
 
@@ -1460,6 +1543,14 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       return res.json({
         ok: false,
         message: "Préstamo no encontrado o no tienes permiso para eliminarlo.",
+      });
+    }
+
+    if (Number(loan.had_payments) === 1 || Number(loan.has_active_payments) === 1) {
+      return res.json({
+        ok: false,
+        message:
+          "No se puede eliminar este préstamo porque ya tuvo al menos un abono registrado. Solo se pueden eliminar sus abonos.",
       });
     }
 
@@ -1480,39 +1571,44 @@ app.post("/api/loans/delete", requireAuth, async (req, res) => {
       });
     }
 
-// ✅ borrar también movimientos del ledger relacionados al préstamo
-await dbRun(
-  `DELETE FROM general_movements
-   WHERE owner_user_id = ?
-     AND (
-       (source_type = 'loan' AND source_id = ?)
-       OR
-       (source_type = 'loan_payment' AND source_id IN (
-         SELECT id FROM loan_payments WHERE loan_id = ?
-       ))
-     )`,
-  [ownerUserId, loanId, loanId]
-);
+    const clientDisplayName =
+      normalizeMovementLabel(loan.client_full_name, "") ||
+      normalizeMovementLabel(loan.client_cedula, "cliente");
+    const reverseDescription = buildDeletedMovementDescription(
+      `Préstamo de $${formatMoney(loan.principal)} a ${clientDisplayName}`
+    );
+    const deletedAt = new Date().toISOString();
 
-// compatibilidad con registros viejos de loan_payment mal guardados con source_id = loanId
-await dbRun(
-  `DELETE FROM general_movements
-   WHERE owner_user_id = ?
-     AND source_type = 'loan_payment'
-     AND source_id = ?`,
-  [ownerUserId, loanId]
-);
+    let transactionStarted = false;
 
-// ✅ Primero borrar abonos del préstamo
-await dbRun("DELETE FROM loan_payments WHERE loan_id = ?", [loanId]);
+    try {
+      await dbRun("BEGIN IMMEDIATE TRANSACTION");
+      transactionStarted = true;
 
-// ✅ Luego borrar el préstamo
-await dbRun("DELETE FROM loans WHERE id = ? AND owner_user_id = ?", [
-  loanId,
-  ownerUserId,
-]);
+      await registerGeneralMovement({
+        ownerUserId,
+        sourceType: "loan_deleted",
+        sourceId: Number(loanId),
+        movementType: "credit",
+        amount: Number(loan.principal),
+        description: reverseDescription,
+        createdAt: deletedAt,
+      });
 
-res.json({ ok: true, message: "Préstamo eliminado correctamente." });
+      await dbRun("DELETE FROM loans WHERE id = ? AND owner_user_id = ?", [
+        loanId,
+        ownerUserId,
+      ]);
+
+      await dbRun("COMMIT");
+      transactionStarted = false;
+      res.json({ ok: true, message: "Préstamo eliminado correctamente." });
+    } catch (txErr) {
+      if (transactionStarted) {
+        await rollbackTransactionQuietly();
+      }
+      throw txErr;
+    }
   } catch (error) {
     console.error("Error en /api/loans/delete:", error);
     res.json({

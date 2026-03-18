@@ -63,6 +63,50 @@ function ensureUsersColumns() {
   });
 }
 
+function ensureLoansColumns() {
+  db.all(`PRAGMA table_info(loans)`, (err, columns) => {
+    if (err) {
+      console.error("Error leyendo esquema de loans:", err);
+      return;
+    }
+
+    const hasHadPayments = columns.some((col) => col.name === "had_payments");
+
+    const backfillLoanPaymentHistory = () => {
+      db.run(
+        `UPDATE loans
+         SET had_payments = 1
+         WHERE id IN (
+           SELECT DISTINCT loan_id
+           FROM loan_payments
+         )`,
+        (updateErr) => {
+          if (updateErr) {
+            console.error("Error rellenando had_payments:", updateErr);
+          }
+        }
+      );
+    };
+
+    if (!hasHadPayments) {
+      db.run(
+        `ALTER TABLE loans ADD COLUMN had_payments INTEGER NOT NULL DEFAULT 0`,
+        (alterErr) => {
+          if (alterErr) {
+            console.error("Error agregando columna had_payments:", alterErr);
+            return;
+          }
+
+          backfillLoanPaymentHistory();
+        }
+      );
+      return;
+    }
+
+    backfillLoanPaymentHistory();
+  });
+}
+
 // Crear tablas y usuario admin por defecto
 db.serialize(() => {
   // Tabla de usuarios
@@ -137,6 +181,8 @@ db.serialize(() => {
       FOREIGN KEY (loan_id) REFERENCES loans(id)
     )
   `);
+
+  ensureLoansColumns();
 
     // Tabla de caja chica
   db.run(`

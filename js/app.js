@@ -2265,12 +2265,26 @@ dailyInput.value = daily ? `$${daily.toFixed(2)}` : "";
   });
 
 
-   let currentLoans = [];
+  let currentLoans = [];
   let currentClientsById = new Map();
 
+  function loanHasPaymentHistory(loan) {
+    return Boolean(loan && loan.hadPayments);
+  }
+
   function canDeleteLoanLive(loan) {
-  return isWithinTimeWindow(loan.startDate);
-}
+    return Boolean(loan) &&
+      isWithinTimeWindow(loan.startDate) &&
+      !loanHasPaymentHistory(loan);
+  }
+
+  function getLoanDeleteErrorMessage(loan) {
+    if (loanHasPaymentHistory(loan)) {
+      return "No se puede eliminar este préstamo porque ya tuvo al menos un abono registrado. Solo se pueden eliminar sus abonos.";
+    }
+
+    return "No se puede eliminar este registro. El tiempo de eliminación (5 minutos) ya expiró.";
+  }
 
 function refreshLoanDeleteButtonsLive() {
   if (!currentLoans.length) return;
@@ -2335,7 +2349,7 @@ if (isOverdue) {
 
         const client = byId.get(loan.clientId);
 
-        const canDelete = isWithinTimeWindow(loan.startDate);
+        const canDelete = canDeleteLoanLive(loan);
 
         tr.innerHTML = `
           <td>${loan.clientId}</td>
@@ -2358,14 +2372,18 @@ if (isOverdue) {
               <i class="fa-solid fa-dollar-sign"></i>
             </button>
 
-            <button class="btn danger btn-action btn-trash ${canDelete ? "" : "disabled"}"
+            ${
+              canDelete
+                ? `
+            <button class="btn danger btn-action btn-trash"
         data-action="delete"
         data-id="${loan.id}"
-        title="${canDelete
-          ? "Eliminar"
-          : "No se puede eliminar este registro"}">
+        title="Eliminar">
   <i class="fa-solid fa-trash"></i>
 </button>
+            `
+                : ""
+            }
             </div>
           </td>
         `;
@@ -2447,13 +2465,10 @@ if (!overdueVisibilityBound) {
       const clientName = client ? client.fullName : "este cliente";
 
       // Verificamos de nuevo si aún se puede eliminar
-      const canDelete = isWithinTimeWindow(loan.startDate);
+      const canDelete = canDeleteLoanLive(loan);
 
       if (!canDelete) {
-        showToast(
-          "No se puede eliminar este registro. El tiempo de eliminación (5 minutos) ya expiró.",
-          "error"
-        );
+        showToast(getLoanDeleteErrorMessage(loan), "error");
         return;
       }
 
@@ -3528,6 +3543,14 @@ function formatMovementDateTitle(dateStr) {
 
   function getPrettyMovementTitle(item) {
     const clientName = String(item.clientFullName || "").trim();
+
+    if (
+      item.sourceType === "loan_deleted" ||
+      item.sourceType === "loan_payment_deleted" ||
+      item.sourceType === "cashbox_deleted"
+    ) {
+      return item.description || "Movimiento revertido";
+    }
 
     if (item.sourceType === "loan") {
       if (clientName) return `Préstamo entregado a: ${clientName}`;
